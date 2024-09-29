@@ -11,7 +11,7 @@
 namespace xui {
 
 /// Base class of all views
-class View {
+class View: public WeakRefCountableBase<View> {
 public:
     virtual ~View();
 

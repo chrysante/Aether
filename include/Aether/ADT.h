@@ -5,6 +5,7 @@
 #include <cassert>
 #include <memory>
 #include <span>
+#include <unordered_set>
 #include <vector>
 
 namespace xui {
@@ -140,6 +141,139 @@ constexpr Rect merge(Rect const& A, Rect const& B) {
 }
 
 enum class LayoutMode { Static, Flex };
+
+/// # WeakRef
+
+template <typename>
+class WeakRef;
+
+namespace detail {
+
+template <typename>
+class WeakRefImpl;
+
+struct WeakRefCountableTag {};
+
+} // namespace detail
+
+template <typename Derived>
+class WeakRefCountableBase: public detail::WeakRefCountableTag {
+protected:
+    WeakRefCountableBase() = default;
+    WeakRefCountableBase(WeakRefCountableBase const&) = delete;
+    WeakRefCountableBase& operator=(WeakRefCountableBase const&) = delete;
+    ~WeakRefCountableBase() {
+        for (auto& ref: _refs) {
+            ref->_ptr = nullptr;
+        }
+    }
+
+private:
+    template <typename>
+    friend class WeakRef;
+    template <typename>
+    friend class detail::WeakRefImpl;
+
+    using WeakRefBaseType = Derived;
+
+    void addRef(detail::WeakRefImpl<Derived>* ref) { _refs.insert(ref); }
+
+    void eraseRef(detail::WeakRefImpl<Derived> const* ref) {
+        _refs.erase(const_cast<detail::WeakRefImpl<Derived>*>(ref));
+    }
+
+    std::unordered_set<detail::WeakRefImpl<Derived>*> _refs;
+};
+
+template <typename T>
+concept WeakRefCountable = std::derived_from<T, detail::WeakRefCountableTag>;
+
+template <typename T>
+class detail::WeakRefImpl {
+public:
+    WeakRefImpl() = default;
+
+    WeakRefImpl(WeakRefImpl const& other): WeakRefImpl(other._ptr) {}
+
+    WeakRefImpl& operator=(WeakRefImpl const& other) {
+        _assign(other._ptr);
+        return *this;
+    }
+
+    ~WeakRefImpl() { release(); }
+
+protected:
+    WeakRefImpl(T* arg): _ptr(arg) { retain(); }
+
+    void _assign(T* other) {
+        release();
+        _ptr = other;
+        retain();
+        return *this;
+    }
+
+private:
+    template <typename>
+    friend class xui::WeakRef;
+    friend class WeakRefCountableBase<T>;
+
+    void retain() {
+        if (_ptr) {
+            _ptr->addRef(this);
+        }
+    }
+    void release() {
+        if (_ptr) {
+            _ptr->eraseRef(this);
+        }
+    }
+
+    T* _ptr = nullptr;
+};
+
+template <WeakRefCountable T>
+class WeakRef<T>: detail::WeakRefImpl<typename T::WeakRefBaseType> {
+    using Impl = detail::WeakRefImpl<typename T::WeakRefBaseType>;
+
+public:
+    WeakRef() = default;
+
+    WeakRef(T& arg): Impl(&arg) {}
+
+    WeakRef(T* arg): Impl(arg) {}
+
+    WeakRef(std::unique_ptr<T> const& arg): Impl(arg.get()) {}
+
+    WeakRef& operator=(T& arg) { this->_assign(&arg); }
+
+    T& assign(T& ptr) { return *assign(&ptr); }
+
+    T* assign(T* ptr) {
+        this->_assign(ptr);
+        return ptr;
+    }
+
+    std::unique_ptr<T> assign(std::unique_ptr<T>&& ptr) {
+        this->_assign(ptr.get());
+        return std::move(ptr);
+    }
+
+    T* get() const { return static_cast<T*>(this->_ptr); }
+
+    T* operator->() const { return get(); }
+
+    T& operator*() const { return *get(); }
+
+    explicit operator bool() const { return get() != nullptr; }
+};
+
+template <typename T>
+WeakRef(T) -> WeakRef<T>;
+
+template <typename T>
+WeakRef(std::unique_ptr<T>) -> WeakRef<T>;
+
+/// # UniqueVector
 
 template <typename T>
 struct UniqueVector: std::vector<std::unique_ptr<T>> {
