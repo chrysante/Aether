@@ -10,8 +10,6 @@
 
 namespace xui {
 
-enum class LayoutMode { Static, Flex };
-
 /// Base class of all views
 class View {
 public:
@@ -25,6 +23,11 @@ public:
     Size maxSize() const { return _maxSize; }
     Size preferredSize() const { return _preferredSize; }
     Vec2<LayoutMode> layoutMode() const { return _layoutMode; }
+
+    void setMinSize(Size size) { _minSize = size; }
+    void setMaxSize(Size size) { _maxSize = size; }
+    void setPreferredSize(Size size) { _preferredSize = size; }
+    void setLayoutMode(Vec2<LayoutMode> mode) { _layoutMode = mode; }
 
 protected:
     void* _handle = nullptr;

@@ -139,6 +139,8 @@ constexpr Rect merge(Rect const& A, Rect const& B) {
     return { pos, max(AMax, BMax) - pos };
 }
 
+enum class LayoutMode { Static, Flex };
+
 template <typename T>
 struct UniqueVector: std::vector<std::unique_ptr<T>> {
 private:

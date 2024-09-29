@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <Aether/Application.h>
+#include <Aether/Modifiers.h>
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
@@ -18,8 +19,10 @@ struct Sandbox: xui::Application {
 
     std::unique_ptr<xui::View> Sidebar() {
         return xui::VStack(
-            { xui::Button("Option 1", [] { std::cout << "Hello\n"; }),
-              xui::Button("Option 2", [] { std::cout << "Hello\n"; }),
+            { xui::Button("Option 1", [] { std::cout << "Hello\n"; }) |
+                  xui::PreferredWidth(100),
+              xui::Button("Option 2", [] { std::cout << "Hello\n"; }) |
+                  xui::XFlex(),
               xui::Button("Option 3", [] { std::cout << "Hello\n"; }),
               xui::Spacer(), xui::TextField("Input"), HScroller() });
     }
@@ -40,10 +43,11 @@ struct Sandbox: xui::Application {
             windowPos.x += 100;
             windowPos.y += 100;
         };
-        return xui::VScrollView({ xui::Button("A", [] { std::cout << "A\n"; }),
-                                  xui::Button("B", [] { std::cout << "B\n"; }),
-                                  xui::Button("C", frameSetter),
-                                  xui::TextField("Input") });
+        return xui::VScrollView(
+            { xui::Button("Print", [] { std::cout << "A\n"; }) | xui::XFlex(),
+              xui::Button("B", [] { std::cout << "B\n"; }) | xui::XFlex(),
+              xui::Button("C", frameSetter) | xui::XFlex(),
+              xui::TextField("Input") });
     }
 
     std::unique_ptr<xui::Window> window;
