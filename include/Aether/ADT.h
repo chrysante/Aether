@@ -26,8 +26,8 @@ constexpr Axis flip(Axis A) {
 template <typename T>
 struct Vec2 {
     Vec2() = default;
-    constexpr Vec2(T value): x(value), y(value) {}
-    constexpr Vec2(T x, T y): x(x), y(y) {}
+    constexpr Vec2(T value): data{ value, value } {}
+    constexpr Vec2(T x, T y): data{ x, y } {}
     constexpr explicit Vec2(Axis axis, T value): Vec2() {
         (*this)[(size_t)axis] = value;
     }
@@ -56,6 +56,26 @@ struct Vec2 {
     };
 };
 
+template <typename T>
+constexpr Vec2<T> operator+(Vec2<T> const& a, Vec2<T> const& b) {
+    return { a.data[0] + b.data[0], a.data[1] + b.data[1] };
+}
+
+template <typename T>
+constexpr Vec2<T> operator-(Vec2<T> const& a, Vec2<T> const& b) {
+    return { a.data[0] - b.data[0], a.data[1] - b.data[1] };
+}
+
+template <typename T>
+constexpr Vec2<T> operator*(Vec2<T> const& a, Vec2<T> const& b) {
+    return { a.data[0] * b.data[0], a.data[1] * b.data[1] };
+}
+
+template <typename T>
+constexpr Vec2<T> operator/(Vec2<T> const& a, Vec2<T> const& b) {
+    return { a.data[0] / b.data[0], a.data[1] / b.data[1] };
+}
+
 namespace detail {
 
 template <typename T>
@@ -67,7 +87,17 @@ concept Vec2Derived = requires(V v) { detail::selector(v); };
 } // namespace detail
 
 template <detail::Vec2Derived V>
-V clamp(V const& v, V const& lo, V const& hi) {
+constexpr V min(V const& a, V const& b) {
+    return { std::min(a.x, b.x), std::min(a.y, b.y) };
+}
+
+template <detail::Vec2Derived V>
+constexpr V max(V const& a, V const& b) {
+    return { std::max(a.x, b.x), std::max(a.y, b.y) };
+}
+
+template <detail::Vec2Derived V>
+constexpr V clamp(V const& v, V const& lo, V const& hi) {
     return { std::clamp(v.x, lo.x, hi.x), std::clamp(v.y, lo.y, hi.y) };
 }
 
@@ -89,6 +119,7 @@ struct Position: Vec2<double> {
 
 struct Size: Vec2<double> {
     using Vec2::Vec2;
+    constexpr Size(Vec2<double> v): Vec2(v) {}
 
     constexpr double& width() { return x; }
     constexpr double width() const { return x; }
@@ -100,6 +131,13 @@ struct Rect {
     Position pos;
     Size size;
 };
+
+constexpr Rect merge(Rect const& A, Rect const& B) {
+    auto AMax = A.pos + A.size;
+    auto BMax = B.pos + B.size;
+    auto pos = min(A.pos, B.pos);
+    return { pos, max(AMax, BMax) - pos };
+}
 
 template <typename T>
 struct UniqueVector: std::vector<std::unique_ptr<T>> {

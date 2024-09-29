@@ -36,13 +36,15 @@ private:
     virtual void doLayout(Rect rect) = 0;
 };
 
-class Spacer: public View {
+class SpacerView: public View {
 public:
-    Spacer();
+    SpacerView();
 
 private:
     void doLayout(Rect) override {}
 };
+
+std::unique_ptr<SpacerView> Spacer();
 
 class AggregateView: public View {
 public:
@@ -69,18 +71,18 @@ private:
     void setFrame(Rect frame);
 };
 
-std::unique_ptr<StackView> hStack(UniqueVector<View> children);
+std::unique_ptr<StackView> HStack(UniqueVector<View> children);
 
 template <size_t N>
-std::unique_ptr<StackView> hStack(std::unique_ptr<View> (&&children)[N]) {
-    return hStack(toUniqueVector(std::move(children)));
+std::unique_ptr<StackView> HStack(std::unique_ptr<View> (&&children)[N]) {
+    return HStack(toUniqueVector(std::move(children)));
 }
 
-std::unique_ptr<StackView> vStack(UniqueVector<View> children);
+std::unique_ptr<StackView> VStack(UniqueVector<View> children);
 
 template <size_t N>
-std::unique_ptr<StackView> vStack(std::unique_ptr<View> (&&children)[N]) {
-    return vStack(toUniqueVector(std::move(children)));
+std::unique_ptr<StackView> VStack(std::unique_ptr<View> (&&children)[N]) {
+    return VStack(toUniqueVector(std::move(children)));
 }
 
 ///
@@ -91,19 +93,27 @@ public:
 private:
     void doLayout(Rect frame) override;
     void setFrame(Rect frame);
+    void setDocumentSize(Size size);
 };
 
-std::unique_ptr<ScrollView> scrollView(UniqueVector<View> children);
+std::unique_ptr<ScrollView> VScrollView(UniqueVector<View> children);
 
 template <size_t N>
-std::unique_ptr<ScrollView> scrollView(std::unique_ptr<View> (&&children)[N]) {
-    return scrollView(toUniqueVector(std::move(children)));
+std::unique_ptr<ScrollView> VScrollView(std::unique_ptr<View> (&&children)[N]) {
+    return VScrollView(toUniqueVector(std::move(children)));
+}
+
+std::unique_ptr<ScrollView> HScrollView(UniqueVector<View> children);
+
+template <size_t N>
+std::unique_ptr<ScrollView> HScrollView(std::unique_ptr<View> (&&children)[N]) {
+    return HScrollView(toUniqueVector(std::move(children)));
 }
 
 /// Button
-class Button: public View {
+class ButtonView: public View {
 public:
-    Button(std::string label, std::function<void()> action);
+    ButtonView(std::string label, std::function<void()> action);
 
     std::string const& label() const { return _label; }
 
@@ -116,18 +126,30 @@ private:
     std::function<void()> _action;
 };
 
-std::unique_ptr<Button> button(std::string label, std::function<void()> action);
+std::unique_ptr<ButtonView> Button(std::string label,
+                                   std::function<void()> action = {});
 
 ///
-class TextField: public View {
+class TextFieldView: public View {
 public:
-    explicit TextField(std::string defaultText);
+    explicit TextFieldView(std::string defaultText);
 
 private:
     void doLayout(Rect frame) override;
 };
 
-std::unique_ptr<TextField> textField(std::string defaultText = {});
+std::unique_ptr<TextFieldView> TextField(std::string defaultText = {});
+
+///
+class LabelView: public View {
+public:
+    explicit LabelView(std::string text);
+
+private:
+    void doLayout(Rect frame) override;
+};
+
+std::unique_ptr<LabelView> Label(std::string text);
 
 } // namespace xui
 

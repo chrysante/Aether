@@ -39,7 +39,7 @@ public:
     /// view
     void setContentView(std::unique_ptr<View> view);
 
-    /// Returns the content view of the window
+    /// \Returns the content view of the window
     View* contentView() { return _content.get(); }
 
     /// \Returns the underlying OS window handle

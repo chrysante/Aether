@@ -87,11 +87,14 @@ static void const* DelegateKey = &DelegateKey;
 Window::Window(std::string title, Rect frame, WindowProperties props,
                std::unique_ptr<View> content):
     _title(std::move(title)), _props(props) {
+    NSWindowStyleMask styleMask = NSWindowStyleMaskTitled |
+                                  NSWindowStyleMaskClosable |
+                                  NSWindowStyleMaskResizable;
+    NSRect contentRect = [NSWindow contentRectForFrameRect:toAppkitCoords(frame)
+                                                 styleMask:styleMask];
     NSWindow* window = [[NSWindow alloc]
-        initWithContentRect:toAppkitCoords(frame)
-                  styleMask:(NSWindowStyleMaskTitled |
-                             NSWindowStyleMaskClosable |
-                             NSWindowStyleMaskResizable)
+        initWithContentRect:contentRect
+                  styleMask:styleMask
                     backing:NSBackingStoreBuffered
                       defer:NO];
     _handle = retain(window);

@@ -8,9 +8,13 @@ using namespace xui;
 
 static constexpr Size SpacerMinSize = { 5, 5 };
 
-Spacer::Spacer() {
+SpacerView::SpacerView() {
     _minSize = SpacerMinSize;
     _layoutMode = LayoutMode::Flex;
+}
+
+std::unique_ptr<SpacerView> xui::Spacer() {
+    return std::make_unique<SpacerView>();
 }
 
 namespace {
@@ -58,13 +62,14 @@ struct ChildrenLayoutOptions {
 } // namespace
 
 template <Axis A>
-static void layoutChildrenXY(auto&& children, Rect frame,
+static Rect layoutChildrenXY(auto&& children, Rect frame,
                              ChildrenLayoutOptions opt) {
     static_assert(A != Axis::Z);
     auto constraints = gatherContraints<A>(children);
     double flexSpace =
         std::max(0.0, get<(size_t)A>(frame.size) - constraints.totalMinSize);
     double cursor = 0;
+    Rect total{};
     for (View* child: children) {
         Size prefSize = child->preferredSize();
         auto layoutMode = child->layoutMode();
@@ -83,20 +88,22 @@ static void layoutChildrenXY(auto&& children, Rect frame,
         Rect childRect{ Position(A, cursor), childSize };
         child->layout(childRect);
         cursor += get<(size_t)A>(childSize);
+        total = merge(total, childRect);
     }
+    return total;
 }
 
 void StackView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
         _children | ranges::views::transform([](auto& c) { return c.get(); });
-    return dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+    dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
             assert(false);
         }
         else {
-            return layoutChildrenXY<A>(childrenView, frame,
-                                       { .fillAvailSpace = true });
+            layoutChildrenXY<A>(childrenView, frame,
+                                { .fillAvailSpace = true });
         }
     });
 }
@@ -105,34 +112,44 @@ void ScrollView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
         _children | ranges::views::transform([](auto& c) { return c.get(); });
-    return dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+    dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
             assert(false);
         }
         else {
-            return layoutChildrenXY<A>(childrenView, frame,
-                                       { .fillAvailSpace{ flip(A), true } });
+            Rect total =
+                layoutChildrenXY<A>(childrenView, frame,
+                                    { .fillAvailSpace{ flip(A), true } });
+            setDocumentSize(max(total.size, frame.size));
         }
     });
 }
 
-std::unique_ptr<StackView> xui::hStack(UniqueVector<View> children) {
+std::unique_ptr<StackView> xui::HStack(UniqueVector<View> children) {
     return std::make_unique<StackView>(Axis::X, std::move(children));
 }
 
-std::unique_ptr<StackView> xui::vStack(UniqueVector<View> children) {
+std::unique_ptr<StackView> xui::VStack(UniqueVector<View> children) {
     return std::make_unique<StackView>(Axis::Y, std::move(children));
 }
 
-std::unique_ptr<ScrollView> xui::scrollView(UniqueVector<View> children) {
+std::unique_ptr<ScrollView> xui::VScrollView(UniqueVector<View> children) {
     return std::make_unique<ScrollView>(Axis::Y, std::move(children));
 }
 
-std::unique_ptr<Button> xui::button(std::string label,
-                                    std::function<void()> action) {
-    return std::make_unique<Button>(std::move(label), std::move(action));
+std::unique_ptr<ScrollView> xui::HScrollView(UniqueVector<View> children) {
+    return std::make_unique<ScrollView>(Axis::X, std::move(children));
 }
 
-std::unique_ptr<TextField> xui::textField(std::string defaultText) {
-    return std::make_unique<TextField>(std::move(defaultText));
+std::unique_ptr<ButtonView> xui::Button(std::string label,
+                                        std::function<void()> action) {
+    return std::make_unique<ButtonView>(std::move(label), std::move(action));
+}
+
+std::unique_ptr<TextFieldView> xui::TextField(std::string defaultText) {
+    return std::make_unique<TextFieldView>(std::move(defaultText));
+}
+
+std::unique_ptr<LabelView> xui::Label(std::string text) {
+    return std::make_unique<LabelView>(text);
 }

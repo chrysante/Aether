@@ -15,6 +15,10 @@ inline id release(void* obj) { return (__bridge_transfer id)obj; }
 
 inline id transfer(void* obj) { return (__bridge id)obj; }
 
+inline NSSize toNSSize(xui::Size size) {
+    return { size.width(), size.height() };
+}
+
 inline NSRect toNSRect(xui::Rect rect) {
     return NSMakeRect(rect.pos.x, rect.pos.y, rect.size.width(),
                       rect.size.height());
