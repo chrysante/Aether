@@ -2,26 +2,104 @@
 #define AETHER_ADT_H
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 #include <span>
 #include <vector>
 
 namespace xui {
 
-struct Position {
-    double x, y;
+enum class Axis { X, Y, Z };
+
+constexpr Axis flip(Axis A) {
+    using enum Axis;
+    switch (A) {
+    case X:
+        return Y;
+    case Y:
+        return X;
+    default:
+        return A;
+    }
+}
+
+template <typename T>
+struct Vec2 {
+    Vec2() = default;
+    constexpr Vec2(T value): x(value), y(value) {}
+    constexpr Vec2(T x, T y): x(x), y(y) {}
+    constexpr explicit Vec2(Axis axis, T value): Vec2() {
+        (*this)[(size_t)axis] = value;
+    }
+
+    constexpr T& operator[](size_t i) {
+        assert(i < 2);
+        return data[i];
+    }
+    constexpr T const& operator[](size_t i) const {
+        assert(i < 2);
+        return data[i];
+    }
+
+    constexpr T* begin() { return &data[0]; }
+    constexpr T const* begin() const { return &data[0]; }
+    constexpr T* end() { return &data[2]; }
+    constexpr T const* end() const { return &data[2]; }
+
+    static constexpr size_t size() { return 2; }
+
+    union {
+        struct {
+            T x{}, y{};
+        };
+        T data[2];
+    };
 };
 
-struct Size {
-    double width, height;
+namespace detail {
+
+template <typename T>
+void selector(Vec2<T> const&);
+
+template <typename V>
+concept Vec2Derived = requires(V v) { detail::selector(v); };
+
+} // namespace detail
+
+template <detail::Vec2Derived V>
+V clamp(V const& v, V const& lo, V const& hi) {
+    return { std::clamp(v.x, lo.x, hi.x), std::clamp(v.y, lo.y, hi.y) };
+}
+
+template <size_t I, typename T>
+constexpr T const& get(Vec2<T> const& v) {
+    static_assert(I < 2);
+    if constexpr (I == 0) return v.x;
+    if constexpr (I == 1) return v.y;
+}
+
+template <size_t I, typename T>
+constexpr T& get(Vec2<T>& v) {
+    return const_cast<T&>(get<I>(std::as_const(v)));
+}
+
+struct Position: Vec2<double> {
+    using Vec2::Vec2;
+};
+
+struct Size: Vec2<double> {
+    using Vec2::Vec2;
+
+    constexpr double& width() { return x; }
+    constexpr double width() const { return x; }
+    constexpr double& height() { return y; }
+    constexpr double height() const { return y; }
 };
 
 struct Rect {
     Position pos;
     Size size;
 };
-
-enum class Axis { X, Y, Z };
 
 template <typename T>
 struct UniqueVector: std::vector<std::unique_ptr<T>> {

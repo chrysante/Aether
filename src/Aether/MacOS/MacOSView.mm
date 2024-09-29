@@ -58,32 +58,6 @@ void ScrollView::setFrame(Rect frame) {
     view.documentView.frame = { {}, view.frame.size };
 }
 
-void ScrollView::doLayout(Rect frame) {
-    setFrame(frame);
-    for (size_t i = 0; i < _children.size(); ++i) {
-        auto* child = _children[i].get();
-        switch (axis()) {
-        case Axis::X: {
-            double childWidth = frame.size.width / _children.size();
-            Rect childRect{ Position{ i * childWidth, 0 },
-                            Size{ childWidth, frame.size.height } };
-            child->layout(childRect);
-            break;
-        }
-        case Axis::Y: {
-            double childHeight = frame.size.height / _children.size();
-            Rect childRect{ Position{ 0, i * childHeight },
-                            Size{ frame.size.width, childHeight } };
-            child->layout(childRect);
-            break;
-        }
-        case Axis::Z:
-            child->layout(frame);
-            break;
-        }
-    }
-}
-
 @interface NSButton (BlockAction)
 
 - (void)setActionBlock:(void (^)(void))actionBlock;

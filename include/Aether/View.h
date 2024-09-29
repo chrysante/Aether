@@ -24,13 +24,13 @@ public:
     Size minSize() const { return _minSize; }
     Size maxSize() const { return _maxSize; }
     Size preferredSize() const { return _preferredSize; }
-    LayoutMode layoutMode() const { return _layoutMode; }
+    Vec2<LayoutMode> layoutMode() const { return _layoutMode; }
 
 protected:
     void* _handle = nullptr;
 
     Size _minSize{}, _maxSize{ INFINITY, INFINITY }, _preferredSize{};
-    LayoutMode _layoutMode = LayoutMode::Static;
+    Vec2<LayoutMode> _layoutMode = LayoutMode::Static;
 
 private:
     virtual void doLayout(Rect rect) = 0;
@@ -66,7 +66,6 @@ public:
 
 private:
     void doLayout(Rect frame) override;
-    void layoutChildren(Rect frame);
     void setFrame(Rect frame);
 };
 

@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include <range/v3/view.hpp>
+
 using namespace xui;
 
 static constexpr Size SpacerMinSize = { 5, 5 };
@@ -14,79 +16,104 @@ Spacer::Spacer() {
 namespace {
 
 struct StackLayoutConstraints {
-    std::vector<View*> flexChildren;
+    size_t numFlexChildren = 0;
     double totalMinSize = 0;
 };
 
 } // namespace
 
-auto makeSizeAccessor(Axis axis) {
-    switch (axis) {
-    case Axis::X:
-        return &Size::width;
-    case Axis::Y:
-        return &Size::height;
-    default:
-        assert(false);
-    }
-}
-
-static StackLayoutConstraints gatherContraints(Axis axis, auto&& children) {
+template <Axis A>
+static StackLayoutConstraints gatherContraints(auto&& children) {
     StackLayoutConstraints result{};
-    for (auto& child: children) {
-        if (child->layoutMode() == LayoutMode::Flex) {
-            result.flexChildren.push_back(child.get());
-            continue;
+    for (View const* child: children) {
+        switch (get<(size_t)A>(child->layoutMode())) {
+        case LayoutMode::Static:
+            result.totalMinSize += get<(size_t)A>(child->minSize());
+            break;
+        case LayoutMode::Flex:
+            ++result.numFlexChildren;
+            break;
         }
-        result.totalMinSize += child->minSize().*makeSizeAccessor(axis);
     }
     return result;
 }
 
-void StackView::doLayout(Rect frame) {
-    setFrame(frame);
-    layoutChildren(frame);
+static decltype(auto) dispatchAxis(Axis axis, auto&& f) {
+    switch (axis) {
+    case Axis::X:
+        return std::invoke(f, std::integral_constant<Axis, Axis::X>{});
+    case Axis::Y:
+        return std::invoke(f, std::integral_constant<Axis, Axis::Y>{});
+    case Axis::Z:
+        return std::invoke(f, std::integral_constant<Axis, Axis::Z>{});
+    }
 }
 
-void StackView::layoutChildren(Rect frame) {
-    auto constraints = gatherContraints(axis(), _children);
-    auto sizeAcc = makeSizeAccessor(axis());
+namespace {
+
+struct ChildrenLayoutOptions {
+    Vec2<bool> fillAvailSpace;
+};
+
+} // namespace
+
+template <Axis A>
+static void layoutChildrenXY(auto&& children, Rect frame,
+                             ChildrenLayoutOptions opt) {
+    static_assert(A != Axis::Z);
+    auto constraints = gatherContraints<A>(children);
     double flexSpace =
-        std::max(0.0, frame.size.*sizeAcc - constraints.totalMinSize);
+        std::max(0.0, get<(size_t)A>(frame.size) - constraints.totalMinSize);
     double cursor = 0;
-    for (size_t i = 0; i < _children.size(); ++i) {
-        auto* child = _children[i].get();
-        double prefSize = [&] {
-            using enum LayoutMode;
-            switch (child->layoutMode()) {
-            case Static:
-                return child->preferredSize().*sizeAcc;
-            case Flex:
-                return flexSpace / constraints.flexChildren.size();
+    for (View* child: children) {
+        Size prefSize = child->preferredSize();
+        auto layoutMode = child->layoutMode();
+        for (auto [index, mode]: layoutMode | ranges::views::enumerate) {
+            if (mode == LayoutMode::Static || !opt.fillAvailSpace[index]) {
+                continue;
             }
-        }();
-        double childSize = std::clamp(prefSize, child->minSize().*sizeAcc,
-                                      child->maxSize().*sizeAcc);
-        switch (axis()) {
-        case Axis::X: { // HStack
-            Rect childRect{ Position{ cursor, 0 },
-                            Size{ childSize, frame.size.height } };
-            child->layout(childRect);
-            cursor += childSize;
-            break;
+            if ((Axis)index == A) {
+                prefSize[index] = flexSpace / constraints.numFlexChildren;
+            }
+            else {
+                prefSize[index] = get<1 - (size_t)A>(frame.size);
+            }
         }
-        case Axis::Y: { // VStack
-            Rect childRect{ Position{ 0, cursor },
-                            Size{ frame.size.width, childSize } };
-            child->layout(childRect);
-            cursor += childSize;
-            break;
-        }
-        case Axis::Z:
-            child->layout(frame);
-            break;
-        }
+        Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
+        Rect childRect{ Position(A, cursor), childSize };
+        child->layout(childRect);
+        cursor += get<(size_t)A>(childSize);
     }
+}
+
+void StackView::doLayout(Rect frame) {
+    setFrame(frame);
+    auto childrenView =
+        _children | ranges::views::transform([](auto& c) { return c.get(); });
+    return dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+        if constexpr (A == Axis::Z) {
+            assert(false);
+        }
+        else {
+            return layoutChildrenXY<A>(childrenView, frame,
+                                       { .fillAvailSpace = true });
+        }
+    });
+}
+
+void ScrollView::doLayout(Rect frame) {
+    setFrame(frame);
+    auto childrenView =
+        _children | ranges::views::transform([](auto& c) { return c.get(); });
+    return dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+        if constexpr (A == Axis::Z) {
+            assert(false);
+        }
+        else {
+            return layoutChildrenXY<A>(childrenView, frame,
+                                       { .fillAvailSpace{ flip(A), true } });
+        }
+    });
 }
 
 std::unique_ptr<StackView> xui::hStack(UniqueVector<View> children) {

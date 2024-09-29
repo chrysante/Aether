@@ -38,3 +38,7 @@ target_include_directories(Aether
     PUBLIC include
     PRIVATE src
 )
+
+target_link_libraries(Aether
+    PRIVATE range-v3
+)

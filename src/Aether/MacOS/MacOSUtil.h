@@ -16,8 +16,8 @@ inline id release(void* obj) { return (__bridge_transfer id)obj; }
 inline id transfer(void* obj) { return (__bridge id)obj; }
 
 inline NSRect toNSRect(xui::Rect rect) {
-    return NSMakeRect(rect.pos.x, rect.pos.y, rect.size.width,
-                      rect.size.height);
+    return NSMakeRect(rect.pos.x, rect.pos.y, rect.size.width(),
+                      rect.size.height());
 }
 
 NSPoint toAppkitCoords(xui::Position pos);
@@ -28,14 +28,14 @@ inline NSPoint toAppkitCoords(xui::Position pos, double height) {
 
 inline NSRect toAppkitCoords(xui::Rect rect) {
     auto pos = toAppkitCoords(rect.pos);
-    pos.y -= rect.size.height;
-    return { pos, NSSize{ rect.size.width, rect.size.height } };
+    pos.y -= rect.size.height();
+    return { pos, NSSize{ rect.size.width(), rect.size.height() } };
 }
 
 inline NSRect toAppkitCoords(xui::Rect rect, double height) {
     auto pos = toAppkitCoords(rect.pos, height);
-    pos.y -= rect.size.height;
-    return { pos, NSSize{ rect.size.width, rect.size.height } };
+    pos.y -= rect.size.height();
+    return { pos, NSSize{ rect.size.width(), rect.size.height() } };
 }
 
 Position fromAppkitCoords(NSPoint pos);
