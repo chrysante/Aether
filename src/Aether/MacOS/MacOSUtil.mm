@@ -26,3 +26,7 @@ NSString* xui::toNSString(char const* str) {
         [[NSString alloc] initWithCString:str
                                  encoding:NSStringEncodingConversionAllowLossy];
 }
+
+std::string xui::toStdString(NSString* str) {
+    return std::string(str.UTF8String);
+}

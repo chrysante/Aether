@@ -79,9 +79,15 @@ static void const* NSButtonBlockKey = &NSButtonBlockKey;
 
 @end
 
+static xui::Size computeSize(NSString* text) {
+    NSFont* font = [NSFont systemFontOfSize:[NSFont systemFontSize]];
+    NSDictionary* attributes = @{ NSFontAttributeName : font };
+    NSSize textSize = [text sizeWithAttributes:attributes];
+    return { textSize.width, textSize.height };
+}
+
 ButtonView::ButtonView(std::string label, std::function<void()> action):
     _label(std::move(label)), _action(std::move(action)) {
-    _preferredSize = _minSize = { 80, 44 };
     NSButton* button = [[NSButton alloc] init];
     _handle = retain(button);
     [button setTitle:toNSString(_label)];
@@ -91,6 +97,8 @@ ButtonView::ButtonView(std::string label, std::function<void()> action):
             _action();
         }
     }];
+    _minSize = { 80, 34 };
+    _preferredSize = fromNSSize(button.intrinsicContentSize);
 }
 
 void ButtonView::doLayout(Rect rect) {
@@ -100,17 +108,56 @@ void ButtonView::doLayout(Rect rect) {
     (void)i;
 }
 
+@interface PaddedView: NSView
+@property(nonatomic) id wrapped;
+@property(nonatomic) double xPadding;
+@property(nonatomic) double yPadding;
+@end
+
+@implementation PaddedView
+
+- (instancetype)initWithView:(NSView*)view {
+    self = [super init];
+    self.wrapped = view;
+    [self addSubview:view];
+    return self;
+}
+
+- (void)setFrame:(NSRect)newFrame {
+    NSRect inset = CGRectMake(self.xPadding, self.yPadding,
+                              newFrame.size.width - 2 * self.xPadding,
+                              newFrame.size.height - 2 * self.yPadding);
+    [super setFrame:newFrame];
+    [self.wrapped setFrame:inset];
+}
+
+@end
+
 TextFieldView::TextFieldView(std::string defaultText) {
     NSTextField* field =
         [NSTextField textFieldWithString:toNSString(defaultText)];
-    _handle = retain(field);
-    _minSize = _preferredSize = { 80, 22 };
+    field.bezelStyle = NSTextFieldRoundedBezel;
+    PaddedView* view = [[PaddedView alloc] initWithView:field];
+    view.xPadding = 6;
+    view.yPadding = 6;
+    _handle = retain(view);
+    _minSize = _preferredSize = { 80, 34 };
     _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
 }
 
-void TextFieldView::doLayout(Rect frame) {
+void TextFieldView::setText(std::string text) {
     NSTextField* field = transfer(_handle);
-    field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
+    assert(false);
+}
+
+std::string TextFieldView::getText() const {
+    NSTextField* field = [transfer(_handle) wrapped];
+    return toStdString([field stringValue]);
+}
+
+void TextFieldView::doLayout(Rect frame) {
+    NSView* view = transfer(_handle);
+    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
 LabelView::LabelView(std::string text) {

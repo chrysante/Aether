@@ -19,6 +19,8 @@ inline NSSize toNSSize(xui::Size size) {
     return { size.width(), size.height() };
 }
 
+inline xui::Size fromNSSize(NSSize size) { return { size.width, size.height }; }
+
 inline NSRect toNSRect(xui::Rect rect) {
     return NSMakeRect(rect.pos.x, rect.pos.y, rect.size.width(),
                       rect.size.height());
@@ -66,6 +68,8 @@ inline xui::Rect fromNSRect(NSRect rect) {
 NSString* toNSString(std::string const& str);
 
 NSString* toNSString(char const* str);
+
+std::string toStdString(NSString* str);
 
 } // namespace xui
 

@@ -24,16 +24,18 @@ struct Sandbox: xui::Application {
               xui::Button("Option 2", [] { std::cout << "Hello\n"; }) |
                   xui::XFlex(),
               xui::Button("Option 3", [] { std::cout << "Hello\n"; }),
-              xui::Spacer(), xui::TextField("Input"), HScroller() });
+              xui::Spacer(), xui::TextField("Input 1"),
+              xui::TextField("Input 2"), xui::TextField("Input 3"),
+              HScroller() });
     }
 
     std::unique_ptr<xui::View> HScroller() {
         return xui::HScrollView({
-            xui::Button("placeholder"),
-            xui::Button("placeholder"),
-            xui::Button("placeholder"),
-            xui::Button("placeholder"),
-            xui::Button("placeholder"),
+            xui::Button("Placeholder"),
+            xui::Button("Placeholder"),
+            xui::Button("Placeholder"),
+            xui::Button("Placeholder"),
+            xui::Button("Placeholder"),
         });
     }
 
@@ -43,15 +45,19 @@ struct Sandbox: xui::Application {
             windowPos.x += 100;
             windowPos.y += 100;
         };
+        auto printText = [this] {
+            std::cout << (textField ? textField->getText() : "") << std::endl;
+        };
         return xui::VScrollView(
-            { xui::Button("Print", [] { std::cout << "A\n"; }) | xui::XFlex(),
+            { xui::Button("Print", printText) | xui::XFlex(),
               xui::Button("B", [] { std::cout << "B\n"; }) | xui::XFlex(),
               xui::Button("C", frameSetter) | xui::XFlex(),
-              xui::TextField("Input") });
+              textField.assign(xui::TextField("Input")) });
     }
 
     std::unique_ptr<xui::Window> window;
     xui::Position windowPos{};
+    xui::WeakRef<xui::TextFieldView> textField;
 };
 
 } // namespace

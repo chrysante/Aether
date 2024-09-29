@@ -137,6 +137,10 @@ class TextFieldView: public View {
 public:
     explicit TextFieldView(std::string defaultText);
 
+    void setText(std::string text);
+
+    std::string getText() const;
+
 private:
     void doLayout(Rect frame) override;
 };
