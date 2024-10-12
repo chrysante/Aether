@@ -23,20 +23,24 @@ struct Sandbox: Application {
         //     Sidebar(),
         // });
 
-        auto content = HSplit({
-            VSplit({
-                std::make_unique<ColorView>(Color::Red()),
-                std::make_unique<ColorView>(Color::Green()) | MinHeight(100),
-                std::make_unique<ColorView>(Color::Blue()),
-            }) | SplitterStyle::Thick,
-            Sidebar() | MinWidth(200),
-            VSplit({
-                std::make_unique<ColorView>(Color::Red()) | MinHeight(100),
-                std::make_unique<ColorView>(Color::Green()) | MinHeight(100),
-            }) | SplitterStyle::Thin |
-                MinWidth(200),
-            std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
-        });
+        auto content =
+            HSplit({
+                VSplit({
+                    std::make_unique<ColorView>(Color::Red()),
+                    std::make_unique<ColorView>(Color::Green()) |
+                        MinHeight(100),
+                    std::make_unique<ColorView>(Color::Blue()),
+                }) | SplitterStyle::Thick,
+                Sidebar() | MinWidth(200),
+                VSplit({
+                    std::make_unique<ColorView>(Color::Red()) | MinHeight(100),
+                    std::make_unique<ColorView>(Color::Green()) |
+                        MinHeight(100),
+                }) | SplitterStyle::Thin |
+                    MinWidth(200),
+                std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
+            }) |
+            SplitViewResizeStrategy::CutMax;
         splitView = content;
 
         // content = HStack({

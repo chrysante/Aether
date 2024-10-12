@@ -141,6 +141,12 @@ public:
 
     void setSplitterThickness(std::optional<double> thickness);
 
+    SplitViewResizeStrategy resizeStrategy() const { return _resizeStrategy; }
+
+    void setResizeStrategy(SplitViewResizeStrategy strategy) {
+        _resizeStrategy = strategy;
+    }
+
 #ifdef AETHER_VIEW_IMPL
 public:
 #else
@@ -158,6 +164,7 @@ private:
     SplitterStyle _splitterStyle = SplitterStyle::Default;
     std::optional<Color> _splitterColor;
     std::optional<double> _splitterThickness;
+    SplitViewResizeStrategy _resizeStrategy = SplitViewResizeStrategy::Default;
     std::vector<double> childFractions;
 };
 

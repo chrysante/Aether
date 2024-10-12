@@ -79,6 +79,10 @@ inline void applyModifier(SplitterStyle style, SplitView& view) {
     view.setSplitterStyle(style);
 }
 
+inline void applyModifier(SplitViewResizeStrategy strategy, SplitView& view) {
+    view.setResizeStrategy(strategy);
+}
+
 constexpr auto SplitterColor(std::optional<Color> const& color) {
     return [=](SplitView& view) { view.setSplitterColor(color); };
 };

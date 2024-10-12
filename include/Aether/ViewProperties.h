@@ -5,6 +5,18 @@ namespace xui {
 
 enum class SplitterStyle { Thin, Thick, Pane, Default = Thin };
 
-}
+enum class SplitViewResizeStrategy {
+    Proportional,
+    CutMin,
+    CutLeft = CutMin,
+    CutTop = CutMin,
+    CutMax,
+    CutRight = CutMax,
+    CutBottom = CutMax,
+    None,
+    Default = Proportional
+};
+
+} // namespace xui
 
 #endif // AETHER_VIEWPROPERTIES_H

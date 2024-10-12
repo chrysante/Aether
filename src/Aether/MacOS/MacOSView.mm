@@ -188,9 +188,30 @@ void SplitView::didResizeSubviews() {
         childFractions[i] = frac;
         fracSum += frac;
     }
-    for (auto& frac: childFractions) {
-        frac /= fracSum;
+    if (fracSum != 1.0) {
+        using enum SplitViewResizeStrategy;
+        auto cutImpl = [&](double& frac) {
+            double diff = 1 - fracSum;
+            double newFrac = frac + diff;
+            frac = std::max(0.0, newFrac);
+        };
+        switch (resizeStrategy()) {
+        case Proportional:
+            for (auto& frac: childFractions) {
+                frac /= fracSum;
+            }
+            break;
+        case CutMin:
+            cutImpl(childFractions.front());
+            break;
+        case CutMax:
+            cutImpl(childFractions.back());
+            break;
+        case None:
+            break;
+        }
     }
+
     layout(frame);
 }
 
