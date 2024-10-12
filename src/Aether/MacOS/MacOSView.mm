@@ -52,6 +52,87 @@ void ScrollView::setDocumentSize(Size size) {
     view.documentView.frame = { {}, toNSSize(size) };
 }
 
+struct SplitView::Impl {
+    static void handleResize(SplitView* splitView,
+                             NSSplitView __weak* nsSplitView) {
+        if (splitView->childFractions.empty()) {
+            return;
+        }
+        assert(splitView->childFractions.size() == nsSplitView.subviews.count);
+        auto frame = fromAppkitCoords(nsSplitView.frame,
+                                      nsSplitView.superview.frame.size.height);
+        double totalWidth = frame.size.width();
+        for (size_t i = 0; i < nsSplitView.subviews.count; ++i) {
+            NSRect childFrame = nsSplitView.subviews[i].frame;
+            splitView->childFractions[i] = childFrame.size.width / totalWidth;
+        }
+        splitView->layout(frame);
+    }
+};
+
+@interface SplitViewDelegate: NSObject <NSSplitViewDelegate>
+@property SplitView* splitView;
+@property(weak) NSSplitView* nsSplitView;
+@end
+@implementation SplitViewDelegate
+
+- (void)splitViewWillResizeSubviews:(NSNotification*)notification {
+    SplitView::Impl::handleResize(self.splitView, self.nsSplitView);
+}
+
+@end
+
+SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
+    AggregateView(axis, std::move(children)) {
+    NSSplitView* view = [[NSSplitView alloc] init];
+    view.vertical = YES;
+    view.arrangesAllSubviews = YES;
+    for (auto& child: _children) {
+        [view addSubview:transfer(child->nativeHandle())];
+    }
+    _handle = retain(view);
+
+    static void const* const DelegateKey = &DelegateKey;
+    SplitViewDelegate* delegate = [[SplitViewDelegate alloc] init];
+    delegate.splitView = this;
+    delegate.nsSplitView = view;
+    objc_setAssociatedObject(view, DelegateKey, delegate,
+                             OBJC_ASSOCIATION_RETAIN);
+    [view setDelegate:delegate];
+}
+
+void SplitView::doLayout(Rect frame) {
+    NSSplitView* view = transfer(_handle);
+    double dividerThickness = view.dividerThickness;
+    auto newFrame = toAppkitCoords(frame, view.superview.frame.size.height);
+    if (!NSEqualRects(view.frame, newFrame)) {
+        view.frame = newFrame;
+        // We return because [view setFrame:] recurses into us
+        if (!childFractions.empty()) {
+            return;
+        }
+    }
+    if (childFractions.empty()) {
+        double frac =
+            ((frame.size.width() - dividerThickness * _children.size()) /
+             frame.size.width()) /
+            _children.size();
+        childFractions.resize(_children.size(), frac);
+    }
+    double totalWidth = frame.size.width();
+    double totalHeight = frame.size.height();
+    double leftOffset = 0;
+    for (size_t i = 0; i < _children.size(); ++i) {
+        auto& child = _children[i];
+        double frac = childFractions[i];
+        assert(frac >= 0.0);
+        double childWidth = totalWidth * frac;
+        Rect childFrame = { { leftOffset, 0 }, { childWidth, totalHeight } };
+        child->layout(childFrame);
+        leftOffset += childWidth + dividerThickness;
+    }
+}
+
 @interface NSButton (BlockAction)
 
 - (void)setActionBlock:(void (^)(void))actionBlock;
@@ -169,4 +250,36 @@ LabelView::LabelView(std::string text) {
 void LabelView::doLayout(Rect frame) {
     NSTextField* field = transfer(_handle);
     field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
+}
+
+@interface FlatColorView: NSView
+@property(nonatomic, strong) NSColor* color;
+@end
+@implementation FlatColorView
+- (instancetype)initWithColor:(NSColor*)color {
+    self = [super init];
+    if (self) {
+        self.color = color;
+    }
+    return self;
+}
+- (void)drawRect:(NSRect)dirtyRect {
+    [super drawRect:dirtyRect];
+
+    [[NSColor blackColor] setFill];
+    NSRectFill(dirtyRect);
+    [self.color setFill];
+    NSRectFill(NSInsetRect(dirtyRect, 10, 10));
+}
+@end
+
+ColorView::ColorView(Color const& color) {
+    FlatColorView* view =
+        [[FlatColorView alloc] initWithColor:toNSColor(color)];
+    _handle = retain(view);
+}
+
+void ColorView::doLayout(Rect frame) {
+    NSView* view = transfer(_handle);
+    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }

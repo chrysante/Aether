@@ -140,6 +140,18 @@ constexpr Rect merge(Rect const& A, Rect const& B) {
     return { pos, max(AMax, BMax) - pos };
 }
 
+struct Color {
+    Color(double r, double g, double b, double a): data{ r, g, b, a } {}
+
+    double red() const { return data[0]; }
+    double green() const { return data[1]; }
+    double blue() const { return data[2]; }
+    double alpha() const { return data[3]; }
+
+private:
+    double data[4];
+};
+
 enum class LayoutMode { Static, Flex };
 
 /// # WeakRef

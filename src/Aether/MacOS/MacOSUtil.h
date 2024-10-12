@@ -3,6 +3,7 @@
 
 #include <string>
 
+#import <Appkit/NSColor.h>
 #import <Foundation/Foundation.h>
 
 #include "Aether/ADT.h"
@@ -50,15 +51,9 @@ inline Position fromAppkitCoords(NSPoint pos, double height) {
     return { pos.x, height - pos.y };
 }
 
-inline xui::Rect fromAppkitCoords(NSRect rect) {
-    return { fromAppkitCoords(rect.origin),
-             Size{ rect.size.width, rect.size.height } };
-}
+xui::Rect fromAppkitCoords(NSRect rect);
 
-inline xui::Rect fromAppkitCoords(NSRect rect, double height) {
-    return { fromAppkitCoords(rect.origin, height),
-             Size{ rect.size.width, rect.size.height } };
-}
+xui::Rect fromAppkitCoords(NSRect rect, double height);
 
 inline xui::Rect fromNSRect(NSRect rect) {
     return { { rect.origin.x, rect.origin.y },
@@ -70,6 +65,10 @@ NSString* toNSString(std::string const& str);
 NSString* toNSString(char const* str);
 
 std::string toStdString(NSString* str);
+
+NSColor* toNSColor(Color const& color);
+
+Color fromNSColor(NSColor* nsColor);
 
 } // namespace xui
 

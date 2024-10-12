@@ -10,10 +10,21 @@ namespace {
 struct Sandbox: xui::Application {
     Sandbox() {
         window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
-        auto content = xui::HStack({
+        // auto content = xui::HStack({
+        //     DetailPanel(),
+        //     Sidebar(),
+        // });
+
+        auto content = xui::HSplit({
+            // std::make_unique<xui::ColorView>(xui::Color{ 1, 1, 0, 1 }),
+            // std::make_unique<xui::ColorView>(xui::Color{ 1, 0, 1, 1 }),
+            // std::make_unique<xui::ColorView>(xui::Color{ 1, 0.5, 0, 1 }),
+
             DetailPanel(),
             Sidebar(),
+            Sidebar(),
         });
+
         window->setContentView(std::move(content));
     }
 

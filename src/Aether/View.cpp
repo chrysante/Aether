@@ -108,6 +108,14 @@ void StackView::doLayout(Rect frame) {
     });
 }
 
+std::unique_ptr<StackView> xui::HStack(UniqueVector<View> children) {
+    return std::make_unique<StackView>(Axis::X, std::move(children));
+}
+
+std::unique_ptr<StackView> xui::VStack(UniqueVector<View> children) {
+    return std::make_unique<StackView>(Axis::Y, std::move(children));
+}
+
 void ScrollView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
@@ -125,20 +133,16 @@ void ScrollView::doLayout(Rect frame) {
     });
 }
 
-std::unique_ptr<StackView> xui::HStack(UniqueVector<View> children) {
-    return std::make_unique<StackView>(Axis::X, std::move(children));
-}
-
-std::unique_ptr<StackView> xui::VStack(UniqueVector<View> children) {
-    return std::make_unique<StackView>(Axis::Y, std::move(children));
-}
-
 std::unique_ptr<ScrollView> xui::VScrollView(UniqueVector<View> children) {
     return std::make_unique<ScrollView>(Axis::Y, std::move(children));
 }
 
 std::unique_ptr<ScrollView> xui::HScrollView(UniqueVector<View> children) {
     return std::make_unique<ScrollView>(Axis::X, std::move(children));
+}
+
+std::unique_ptr<SplitView> xui::HSplit(UniqueVector<View> children) {
+    return std::make_unique<SplitView>(Axis::X, std::move(children));
 }
 
 std::unique_ptr<ButtonView> xui::Button(std::string label,

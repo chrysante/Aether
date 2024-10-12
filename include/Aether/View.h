@@ -113,6 +113,25 @@ std::unique_ptr<ScrollView> HScrollView(std::unique_ptr<View> (&&children)[N]) {
     return HScrollView(toUniqueVector(std::move(children)));
 }
 
+class SplitView: public AggregateView {
+public:
+    SplitView(Axis axis, std::vector<std::unique_ptr<View>> children);
+
+    struct Impl;
+
+private:
+    void doLayout(Rect frame) override;
+
+    std::vector<double> childFractions;
+};
+
+std::unique_ptr<SplitView> HSplit(UniqueVector<View> children);
+
+template <size_t N>
+std::unique_ptr<SplitView> HSplit(std::unique_ptr<View> (&&children)[N]) {
+    return HSplit(toUniqueVector(std::move(children)));
+}
+
 /// Button
 class ButtonView: public View {
 public:
@@ -157,6 +176,14 @@ private:
 };
 
 std::unique_ptr<LabelView> Label(std::string text);
+
+class ColorView: public View {
+public:
+    ColorView(Color const& color);
+
+private:
+    void doLayout(Rect frame) override;
+};
 
 } // namespace xui
 

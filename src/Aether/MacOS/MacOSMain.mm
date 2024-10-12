@@ -22,7 +22,6 @@ static std::unique_ptr<xui::Application> gApp;
 }
 
 - (void)applicationWillTerminate:(NSNotification*)aNotification {
-    // Insert code here to tear down your application
     gApp.reset();
 }
 
@@ -37,9 +36,6 @@ int macOSMain(int argc, char const** argv) {
         // Set the delegate to your custom AppDelegate
         AppDelegate* delegate = [[AppDelegate alloc] init];
         [NSApp setDelegate:delegate];
-
-        [NSApp run];
-        return 0;
 
         // Set the main menu programmatically if needed
         NSMenu* menuBar = [[NSMenu alloc] init];
