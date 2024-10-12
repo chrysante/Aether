@@ -67,7 +67,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
     static_assert(A != Axis::Z);
     auto constraints = gatherContraints<A>(children);
     double flexSpace =
-        std::max(0.0, get<(size_t)A>(frame.size) - constraints.totalMinSize);
+        std::max(0.0, get<(size_t)A>(frame.size()) - constraints.totalMinSize);
     double cursor = 0;
     Rect total{};
     for (View* child: children) {
@@ -81,7 +81,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
                 prefSize[index] = flexSpace / constraints.numFlexChildren;
             }
             else {
-                prefSize[index] = get<1 - (size_t)A>(frame.size);
+                prefSize[index] = get<1 - (size_t)A>(frame.size());
             }
         }
         Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
@@ -128,7 +128,7 @@ void ScrollView::doLayout(Rect frame) {
             Rect total =
                 layoutChildrenXY<A>(childrenView, frame,
                                     { .fillAvailSpace{ flip(A), true } });
-            setDocumentSize(max(total.size, frame.size));
+            setDocumentSize(max(total.size(), frame.size()));
         }
     });
 }

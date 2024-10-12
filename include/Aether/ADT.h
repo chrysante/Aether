@@ -24,82 +24,148 @@ constexpr Axis flip(Axis A) {
     }
 }
 
+namespace detail {
+
+template <typename T, size_t N>
+struct VecData;
+
 template <typename T>
-struct Vec2 {
-    Vec2() = default;
-    constexpr Vec2(T value): data{ value, value } {}
-    constexpr Vec2(T x, T y): data{ x, y } {}
-    constexpr explicit Vec2(Axis axis, T value): Vec2() {
+struct VecData<T, 2> {
+    VecData() = default;
+    constexpr VecData(T x, T y): data{ x, y } {}
+    constexpr VecData(T value): data{ value, value } {}
+
+    union {
+        T data[2]{};
+        struct {
+            T x, y;
+        };
+    };
+};
+
+template <typename T>
+struct VecData<T, 3> {
+    VecData() = default;
+    constexpr VecData(T x, T y, T z): data{ x, y, z } {}
+    constexpr VecData(T value): data{ value, value, value } {}
+
+    union {
+        T data[3]{};
+        struct {
+            T x, y, z;
+        };
+    };
+};
+
+template <typename T>
+struct VecData<T, 4> {
+    VecData() = default;
+    constexpr VecData(T x, T y, T z, T w): data{ x, y, z, w } {}
+    constexpr VecData(T value): data{ value, value, value, value } {}
+
+    union {
+        T data[4]{};
+        struct {
+            T x, y, z, w;
+        };
+    };
+};
+
+} // namespace detail
+
+template <typename T, size_t N>
+struct Vec: detail::VecData<T, N> {
+private:
+    using Base = detail::VecData<T, N>;
+
+public:
+    using Base::data;
+
+    Vec() = default;
+
+    using Base::Base;
+
+    constexpr explicit Vec(Axis axis, T value): Vec() {
         (*this)[(size_t)axis] = value;
     }
 
     constexpr T& operator[](size_t i) {
-        assert(i < 2);
+        assert(i < N);
         return data[i];
     }
     constexpr T const& operator[](size_t i) const {
-        assert(i < 2);
+        assert(i < N);
         return data[i];
     }
 
     constexpr T* begin() { return &data[0]; }
     constexpr T const* begin() const { return &data[0]; }
-    constexpr T* end() { return &data[2]; }
-    constexpr T const* end() const { return &data[2]; }
+    constexpr T* end() { return &data[N]; }
+    constexpr T const* end() const { return &data[N]; }
 
-    static constexpr size_t size() { return 2; }
-
-    union {
-        struct {
-            T x{}, y{};
-        };
-        T data[2];
-    };
+    static constexpr size_t size() { return N; }
 };
 
 template <typename T>
-constexpr Vec2<T> operator+(Vec2<T> const& a, Vec2<T> const& b) {
-    return { a.data[0] + b.data[0], a.data[1] + b.data[1] };
+using Vec2 = Vec<T, 2>;
+
+template <typename T, size_t N>
+constexpr Vec<T, N> operator+(Vec<T, N> const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] + b.data[I])... };
+    }(std::make_index_sequence<N>());
 }
 
-template <typename T>
-constexpr Vec2<T> operator-(Vec2<T> const& a, Vec2<T> const& b) {
-    return { a.data[0] - b.data[0], a.data[1] - b.data[1] };
+template <typename T, size_t N>
+constexpr Vec<T, N> operator-(Vec<T, N> const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] - b.data[I])... };
+    }(std::make_index_sequence<N>());
 }
 
-template <typename T>
-constexpr Vec2<T> operator*(Vec2<T> const& a, Vec2<T> const& b) {
-    return { a.data[0] * b.data[0], a.data[1] * b.data[1] };
+template <typename T, size_t N>
+constexpr Vec<T, N> operator*(Vec<T, N> const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] * b.data[I])... };
+    }(std::make_index_sequence<N>());
 }
 
-template <typename T>
-constexpr Vec2<T> operator/(Vec2<T> const& a, Vec2<T> const& b) {
-    return { a.data[0] / b.data[0], a.data[1] / b.data[1] };
+template <typename T, size_t N>
+constexpr Vec<T, N> operator/(Vec<T, N> const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] / b.data[I])... };
+    }(std::make_index_sequence<N>());
 }
 
 namespace detail {
 
-template <typename T>
-void selector(Vec2<T> const&);
+template <typename T, size_t N>
+void selector(Vec<T, N> const&);
 
 template <typename V>
-concept Vec2Derived = requires(V v) { detail::selector(v); };
+concept VecDerived = requires(V v) { detail::selector(v); };
 
 } // namespace detail
 
-template <detail::Vec2Derived V>
+template <detail::VecDerived V>
 constexpr V min(V const& a, V const& b) {
-    return { std::min(a.x, b.x), std::min(a.y, b.y) };
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return V{ std::min(a.data[I], b.data[I])... };
+    }(std::make_index_sequence<V::size()>());
 }
 
-template <detail::Vec2Derived V>
+template <detail::VecDerived V>
 constexpr V max(V const& a, V const& b) {
-    return { std::max(a.x, b.x), std::max(a.y, b.y) };
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return V{ std::max(a.data[I], b.data[I])... };
+    }(std::make_index_sequence<V::size()>());
 }
 
-template <detail::Vec2Derived V>
+template <detail::VecDerived V>
 constexpr V clamp(V const& v, V const& lo, V const& hi) {
-    return { std::clamp(v.x, lo.x, hi.x), std::clamp(v.y, lo.y, hi.y) };
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return V{ std::clamp(v.data[I], lo.data[I], hi.data[I])... };
+    }(std::make_index_sequence<V::size()>());
 }
 
 template <size_t I, typename T>
@@ -114,13 +180,13 @@ constexpr T& get(Vec2<T>& v) {
     return const_cast<T&>(get<I>(std::as_const(v)));
 }
 
-struct Position: Vec2<double> {
-    using Vec2::Vec2;
+struct Position: Vec<double, 2> {
+    using Vec::Vec;
 };
 
-struct Size: Vec2<double> {
-    using Vec2::Vec2;
-    constexpr Size(Vec2<double> v): Vec2(v) {}
+struct Size: Vec<double, 2> {
+    using Vec::Vec;
+    constexpr Size(Vec2<double> v): Vec(v) {}
 
     constexpr double& width() { return x; }
     constexpr double width() const { return x; }
@@ -128,28 +194,49 @@ struct Size: Vec2<double> {
     constexpr double height() const { return y; }
 };
 
-struct Rect {
-    Position pos;
-    Size size;
+struct Rect: Position, Size {
+    Position pos() const { return *this; };
+    Size size() const { return *this; };
 };
 
 constexpr Rect merge(Rect const& A, Rect const& B) {
-    auto AMax = A.pos + A.size;
-    auto BMax = B.pos + B.size;
-    auto pos = min(A.pos, B.pos);
+    auto AMax = A.pos() + A.size();
+    auto BMax = B.pos() + B.size();
+    auto pos = min(A.pos(), B.pos());
     return { pos, max(AMax, BMax) - pos };
 }
 
-struct Color {
-    Color(double r, double g, double b, double a): data{ r, g, b, a } {}
+struct Color: Vec<double, 4> {
+    using Vec::Vec;
+
+    static constexpr Color Red(double alpha = 1.0) {
+        return { 1, 0, 0, alpha };
+    }
+
+    static constexpr Color Green(double alpha = 1.0) {
+        return { 0, 1, 0, alpha };
+    }
+
+    static constexpr Color Blue(double alpha = 1.0) {
+        return { 0, 0, 1, alpha };
+    }
+
+    static constexpr Color Yellow(double alpha = 1.0) {
+        return { 1, 1, 0, alpha };
+    }
+
+    static constexpr Color Cyan(double alpha = 1.0) {
+        return { 0, 1, 1, alpha };
+    }
+
+    static constexpr Color Pink(double alpha = 1.0) {
+        return { 1, 0, 1, alpha };
+    }
 
     double red() const { return data[0]; }
     double green() const { return data[1]; }
     double blue() const { return data[2]; }
     double alpha() const { return data[3]; }
-
-private:
-    double data[4];
 };
 
 enum class LayoutMode { Static, Flex };

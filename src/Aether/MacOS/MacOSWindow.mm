@@ -16,7 +16,7 @@ struct internal::WindowImpl {
         NSWindow* nsWindow = transfer(window._handle);
         NSView* cview = transfer(window._content->nativeHandle());
         [nsWindow.contentView addSubview:cview];
-        auto size = fromAppkitCoords(nsWindow.contentView.frame).size;
+        auto size = fromAppkitCoords(nsWindow.contentView.frame).size();
         window._content->layout({ { 0, 0 }, size });
     }
 

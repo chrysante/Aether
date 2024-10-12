@@ -61,7 +61,7 @@ struct SplitView::Impl {
         assert(splitView->childFractions.size() == nsSplitView.subviews.count);
         auto frame = fromAppkitCoords(nsSplitView.frame,
                                       nsSplitView.superview.frame.size.height);
-        double totalWidth = frame.size.width();
+        double totalWidth = frame.width();
         for (size_t i = 0; i < nsSplitView.subviews.count; ++i) {
             NSRect childFrame = nsSplitView.subviews[i].frame;
             splitView->childFractions[i] = childFrame.size.width / totalWidth;
@@ -113,14 +113,13 @@ void SplitView::doLayout(Rect frame) {
         }
     }
     if (childFractions.empty()) {
-        double frac =
-            ((frame.size.width() - dividerThickness * _children.size()) /
-             frame.size.width()) /
-            _children.size();
+        double frac = ((frame.width() - dividerThickness * _children.size()) /
+                       frame.width()) /
+                      _children.size();
         childFractions.resize(_children.size(), frac);
     }
-    double totalWidth = frame.size.width();
-    double totalHeight = frame.size.height();
+    double totalWidth = frame.width();
+    double totalHeight = frame.height();
     double leftOffset = 0;
     for (size_t i = 0; i < _children.size(); ++i) {
         auto& child = _children[i];
