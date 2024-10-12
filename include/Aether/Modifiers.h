@@ -59,6 +59,22 @@ constexpr auto PreferredHeight(double height) {
     };
 }
 
+constexpr auto MinSize(Size size) {
+    return [=](View& view) { view.setMinSize(size); };
+}
+
+constexpr auto MinWidth(double width) {
+    return [=](View& view) {
+        view.setMinSize({ width, view.minSize().height() });
+    };
+}
+
+constexpr auto MinHeight(double height) {
+    return [=](View& view) {
+        view.setMinSize({ view.minSize().width(), height });
+    };
+}
+
 inline void applyModifier(SplitterStyle style, SplitView& view) {
     view.setSplitterStyle(style);
 }

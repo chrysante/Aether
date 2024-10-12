@@ -16,7 +16,7 @@ class View: public WeakRefCountableBase<View> {
 public:
     virtual ~View();
 
-    void layout(Rect rect) { doLayout(rect); }
+    void layout(Rect frame);
 
     void* nativeHandle() const { return _handle; }
 
@@ -30,6 +30,13 @@ public:
     void setPreferredSize(Size size) { _preferredSize = size; }
     void setLayoutMode(Vec2<LayoutMode> mode) { _layoutMode = mode; }
 
+    Rect frame() const { return { position(), size() }; }
+    Position position() const;
+    Size size() const;
+
+    View* parent() { return _parent; }
+    View const* parent() const { return _parent; }
+
 protected:
     void* _handle = nullptr;
 
@@ -38,6 +45,9 @@ protected:
 
 private:
     virtual void doLayout(Rect rect) = 0;
+    friend class AggregateView;
+
+    View* _parent = nullptr;
 };
 
 class SpacerView: public View {
@@ -55,8 +65,7 @@ public:
     Axis axis() const { return _axis; }
 
 protected:
-    AggregateView(Axis axis, std::vector<std::unique_ptr<View>> children):
-        _axis(axis), _children(std::move(children)) {}
+    AggregateView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
 private:
     Axis _axis;
@@ -132,8 +141,19 @@ public:
 
     void setSplitterThickness(std::optional<double> thickness);
 
+#ifdef AETHER_VIEW_IMPL
+public:
+#else
+private:
+#endif
+    void didResizeSubviews();
+    double constrainSplitPosition(double proposedPosition,
+                                  size_t dividerIndex) const;
+
 private:
     void doLayout(Rect frame) override;
+
+    double sizeWithoutDividers() const;
 
     SplitterStyle _splitterStyle = SplitterStyle::Default;
     std::optional<Color> _splitterColor;

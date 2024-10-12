@@ -8,6 +8,16 @@
 
 using namespace xui;
 
+void View::layout(Rect frame) { doLayout(frame); }
+
+AggregateView::AggregateView(Axis axis,
+                             std::vector<std::unique_ptr<View>> children):
+    _axis(axis), _children(std::move(children)) {
+    for (auto& child: _children) {
+        child->_parent = this;
+    }
+}
+
 static constexpr Size SpacerMinSize = { 5, 5 };
 
 SpacerView::SpacerView() {

@@ -1,3 +1,5 @@
+#define AETHER_VIEW_IMPL
+
 #include "Aether/View.h"
 
 #include <functional>
@@ -13,6 +15,19 @@
 using namespace xui;
 
 View::~View() { release(_handle); }
+
+Position View::position() const {
+    NSView* view = transfer(_handle);
+    auto pos =
+        fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
+    pos.y -= view.frame.size.height;
+    return pos;
+}
+
+xui::Size View::size() const {
+    NSView* view = transfer(_handle);
+    return fromNSSize(view.frame.size);
+}
 
 // MARK: - StackView
 
@@ -62,19 +77,12 @@ void ScrollView::setDocumentSize(Size size) {
 
 // MARK: - SplitView
 
-@interface SplitViewDelegate: NSObject <NSSplitViewDelegate>
-@property std::function<void()> impl;
-@end
-@implementation SplitViewDelegate
-- (void)splitViewWillResizeSubviews:(NSNotification*)notification {
-    self.impl();
-}
-@end
-
 @interface AetherSplitView: NSSplitView
 @property NSColor* divColor;
 @property std::optional<double> divThickness;
+@property SplitView* This;
 @end
+
 @implementation AetherSplitView
 - (NSColor*)dividerColor {
     if (self.divColor) {
@@ -90,9 +98,34 @@ void ScrollView::setDocumentSize(Size size) {
 }
 @end
 
+@interface SplitViewDelegate: NSObject <NSSplitViewDelegate>
+@end
+
+@implementation SplitViewDelegate
+- (void)splitViewDidResizeSubviews:(NSNotification*)notification {
+    auto* This = ((AetherSplitView*)notification.object).This;
+    This->didResizeSubviews();
+}
+
+- (void)splitView:(NSSplitView*)splitView
+    resizeSubviewsWithOldSize:(NSSize)oldSize {
+}
+
+- (CGFloat)splitView:(NSSplitView*)splitView
+    constrainSplitPosition:(CGFloat)proposedPosition
+               ofSubviewAt:(NSInteger)dividerIndex {
+    auto* This = ((AetherSplitView*)splitView).This;
+    return This->constrainSplitPosition(proposedPosition, dividerIndex);
+}
+@end
+
+static SplitViewDelegate* const gSplitViewDelegate =
+    [[SplitViewDelegate alloc] init];
+
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     AggregateView(axis, std::move(children)) {
     AetherSplitView* view = [[AetherSplitView alloc] init];
+    view.This = this;
     view.vertical = axis == Axis::X;
     for (auto& child: _children) {
         [view addSubview:transfer(child->nativeHandle())];
@@ -100,26 +133,7 @@ SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     _handle = retain(view);
     setSplitterStyle(_splitterStyle);
     static void const* const DelegateKey = &DelegateKey;
-    SplitViewDelegate* delegate = [[SplitViewDelegate alloc] init];
-    delegate.impl = [=, this] {
-        if (childFractions.empty()) {
-            return;
-        }
-        assert(childFractions.size() == view.subviews.count);
-        auto frame =
-            fromAppkitCoords(view.frame, view.superview.frame.size.height);
-        double totalSize = frame.size()[(size_t)axis];
-        for (size_t i = 0; i < view.subviews.count; ++i) {
-            NSRect childFrame = view.subviews[i].frame;
-            double size = axis == Axis::X ? childFrame.size.width :
-                                            childFrame.size.height;
-            childFractions[i] = size / totalSize;
-        }
-        layout(frame);
-    };
-    objc_setAssociatedObject(view, DelegateKey, delegate,
-                             OBJC_ASSOCIATION_RETAIN);
-    [view setDelegate:delegate];
+    [view setDelegate:gSplitViewDelegate];
 }
 
 static NSSplitViewDividerStyle toNS(SplitterStyle style) {
@@ -152,6 +166,62 @@ void SplitView::setSplitterThickness(std::optional<double> thickness) {
     view.divThickness = thickness;
 }
 
+double SplitView::sizeWithoutDividers() const {
+    NSSplitView* view = transfer(_handle);
+    return fromNSSize(view.frame.size)[(size_t)axis()] -
+           view.dividerThickness * (_children.size() - 1);
+}
+
+void SplitView::didResizeSubviews() {
+    AetherSplitView* view = (AetherSplitView*)transfer(_handle);
+    if (childFractions.empty()) {
+        return;
+    }
+    assert(childFractions.size() == view.subviews.count);
+    auto frame = fromAppkitCoords(view.frame, view.superview.frame.size.height);
+    double totalSize = sizeWithoutDividers();
+    double fracSum = 0;
+    for (size_t i = 0; i < _children.size(); ++i) {
+        auto* child = _children[i].get();
+        double size = child->size()[(size_t)axis()];
+        double frac = size / totalSize;
+        childFractions[i] = frac;
+        fracSum += frac;
+    }
+    for (auto& frac: childFractions) {
+        frac /= fracSum;
+    }
+    layout(frame);
+}
+
+double SplitView::constrainSplitPosition(double proposedPosition,
+                                         size_t index) const {
+    size_t const AI = (size_t)axis();
+    auto* left = _children[index].get();
+    auto* right = _children[index + 1].get();
+    // Must transform the position again because of the flipped coordinate
+    // system
+    Position leftPosition = left->position();
+    leftPosition.y += left->size().height();
+    leftPosition.y = size().height() - leftPosition.y;
+    double currentPosition = leftPosition[AI] + left->size()[AI];
+    double offset = proposedPosition - currentPosition;
+    double leftNewSize = left->size()[AI] + offset;
+    double rightNewSize = right->size()[AI] - offset;
+    bool leftViolated = left->minSize()[AI] > leftNewSize;
+    bool rightViolated = right->minSize()[AI] > rightNewSize;
+    if (leftViolated && rightViolated) {
+        return currentPosition;
+    }
+    if (leftViolated) {
+        return leftPosition[AI] + left->minSize()[AI];
+    }
+    if (rightViolated) {
+        return currentPosition + right->size()[AI] - right->minSize()[AI];
+    }
+    return proposedPosition;
+}
+
 void SplitView::doLayout(Rect frame) {
     NSSplitView* view = transfer(_handle);
     double dividerThickness = view.dividerThickness;
@@ -163,11 +233,9 @@ void SplitView::doLayout(Rect frame) {
             return;
         }
     }
-    double totalSize = frame.size()[(size_t)axis()];
+    double totalSize = sizeWithoutDividers();
     if (childFractions.empty()) {
-        double frac =
-            ((totalSize - dividerThickness * _children.size()) / totalSize) /
-            _children.size();
+        double frac = 1.0 / _children.size();
         childFractions.resize(_children.size(), frac);
     }
     double offset = 0;
