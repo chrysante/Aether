@@ -1,14 +1,20 @@
 #include "Aether/View.h"
 
+#include <functional>
+#include <optional>
+
 #import <Appkit/Appkit.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
 #include "Aether/MacOS/MacOSUtil.h"
+#include "Aether/ViewUtil.h"
 
 using namespace xui;
 
 View::~View() { release(_handle); }
+
+// MARK: - StackView
 
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
     AggregateView(axis, std::move(children)) {
@@ -25,6 +31,8 @@ void StackView::setFrame(Rect frame) {
     NSView* view = transfer(_handle);
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
+
+// MARK: - ScrollView
 
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
     AggregateView(axis, std::move(children)) {
@@ -52,53 +60,96 @@ void ScrollView::setDocumentSize(Size size) {
     view.documentView.frame = { {}, toNSSize(size) };
 }
 
-struct SplitView::Impl {
-    static void handleResize(SplitView* splitView,
-                             NSSplitView __weak* nsSplitView) {
-        if (splitView->childFractions.empty()) {
-            return;
-        }
-        assert(splitView->childFractions.size() == nsSplitView.subviews.count);
-        auto frame = fromAppkitCoords(nsSplitView.frame,
-                                      nsSplitView.superview.frame.size.height);
-        double totalWidth = frame.width();
-        for (size_t i = 0; i < nsSplitView.subviews.count; ++i) {
-            NSRect childFrame = nsSplitView.subviews[i].frame;
-            splitView->childFractions[i] = childFrame.size.width / totalWidth;
-        }
-        splitView->layout(frame);
-    }
-};
+// MARK: - SplitView
 
 @interface SplitViewDelegate: NSObject <NSSplitViewDelegate>
-@property SplitView* splitView;
-@property(weak) NSSplitView* nsSplitView;
+@property std::function<void()> impl;
 @end
 @implementation SplitViewDelegate
-
 - (void)splitViewWillResizeSubviews:(NSNotification*)notification {
-    SplitView::Impl::handleResize(self.splitView, self.nsSplitView);
+    self.impl();
 }
+@end
 
+@interface AetherSplitView: NSSplitView
+@property NSColor* divColor;
+@property std::optional<double> divThickness;
+@end
+@implementation AetherSplitView
+- (NSColor*)dividerColor {
+    if (self.divColor) {
+        return self.divColor;
+    }
+    return [super dividerColor];
+}
+- (double)dividerThickness {
+    if (self.divThickness) {
+        return *self.divThickness;
+    }
+    return [super dividerThickness];
+}
 @end
 
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     AggregateView(axis, std::move(children)) {
-    NSSplitView* view = [[NSSplitView alloc] init];
-    view.vertical = YES;
-    view.arrangesAllSubviews = YES;
+    AetherSplitView* view = [[AetherSplitView alloc] init];
+    view.vertical = axis == Axis::X;
     for (auto& child: _children) {
         [view addSubview:transfer(child->nativeHandle())];
     }
     _handle = retain(view);
-
+    setSplitterStyle(_splitterStyle);
     static void const* const DelegateKey = &DelegateKey;
     SplitViewDelegate* delegate = [[SplitViewDelegate alloc] init];
-    delegate.splitView = this;
-    delegate.nsSplitView = view;
+    delegate.impl = [=, this] {
+        if (childFractions.empty()) {
+            return;
+        }
+        assert(childFractions.size() == view.subviews.count);
+        auto frame =
+            fromAppkitCoords(view.frame, view.superview.frame.size.height);
+        double totalSize = frame.size()[(size_t)axis];
+        for (size_t i = 0; i < view.subviews.count; ++i) {
+            NSRect childFrame = view.subviews[i].frame;
+            double size = axis == Axis::X ? childFrame.size.width :
+                                            childFrame.size.height;
+            childFractions[i] = size / totalSize;
+        }
+        layout(frame);
+    };
     objc_setAssociatedObject(view, DelegateKey, delegate,
                              OBJC_ASSOCIATION_RETAIN);
     [view setDelegate:delegate];
+}
+
+static NSSplitViewDividerStyle toNS(SplitterStyle style) {
+    using enum SplitterStyle;
+    switch (style) {
+    case Thin:
+        return NSSplitViewDividerStyleThin;
+    case Thick:
+        return NSSplitViewDividerStyleThick;
+    case Pane:
+        return NSSplitViewDividerStylePaneSplitter;
+    }
+}
+
+void SplitView::setSplitterStyle(SplitterStyle style) {
+    _splitterStyle = style;
+    NSSplitView* view = transfer(_handle);
+    view.dividerStyle = toNS(style);
+}
+
+void SplitView::setSplitterColor(std::optional<Color> color) {
+    _splitterColor = color;
+    AetherSplitView* view = transfer(_handle);
+    view.divColor = toNSColor(color);
+}
+
+void SplitView::setSplitterThickness(std::optional<double> thickness) {
+    _splitterThickness = thickness;
+    AetherSplitView* view = transfer(_handle);
+    view.divThickness = thickness;
 }
 
 void SplitView::doLayout(Rect frame) {
@@ -112,43 +163,45 @@ void SplitView::doLayout(Rect frame) {
             return;
         }
     }
+    double totalSize = frame.size()[(size_t)axis()];
     if (childFractions.empty()) {
-        double frac = ((frame.width() - dividerThickness * _children.size()) /
-                       frame.width()) /
-                      _children.size();
+        double frac =
+            ((totalSize - dividerThickness * _children.size()) / totalSize) /
+            _children.size();
         childFractions.resize(_children.size(), frac);
     }
-    double totalWidth = frame.width();
-    double totalHeight = frame.height();
-    double leftOffset = 0;
+    double offset = 0;
     for (size_t i = 0; i < _children.size(); ++i) {
         auto& child = _children[i];
         double frac = childFractions[i];
         assert(frac >= 0.0);
-        double childWidth = totalWidth * frac;
-        Rect childFrame = { { leftOffset, 0 }, { childWidth, totalHeight } };
+        double childSize = totalSize * frac;
+        Rect childFrame = { Position(axis(), offset), frame.size() };
+        childFrame.size()[(size_t)axis()] = childSize;
+        if (axis() == Axis::Y) {
+            // We need to do this coordinate transform dance because here AppKit
+            // uses top-left -> bottom-right coordinates, unlike everywhere else
+            childFrame.pos().y =
+                frame.height() - childFrame.height() - childFrame.pos().y;
+        }
         child->layout(childFrame);
-        leftOffset += childWidth + dividerThickness;
+        offset += childSize + dividerThickness;
     }
 }
 
+// MARK: - Button
+
 @interface NSButton (BlockAction)
-
 - (void)setActionBlock:(void (^)(void))actionBlock;
-
 @end
-
 static void const* NSButtonBlockKey = &NSButtonBlockKey;
-
 @implementation NSButton (BlockAction)
-
 - (void)setActionBlock:(void (^)(void))actionBlock {
     objc_setAssociatedObject(self, NSButtonBlockKey, actionBlock,
                              OBJC_ASSOCIATION_COPY_NONATOMIC);
     [self setTarget:self];
     [self setAction:@selector(executeActionBlock)];
 }
-
 - (void)executeActionBlock {
     void (^actionBlock)(void) =
         objc_getAssociatedObject(self, NSButtonBlockKey);
@@ -156,9 +209,9 @@ static void const* NSButtonBlockKey = &NSButtonBlockKey;
         actionBlock();
     }
 }
-
 @end
 
+[[maybe_unused]]
 static xui::Size computeSize(NSString* text) {
     NSFont* font = [NSFont systemFontOfSize:[NSFont systemFontSize]];
     NSDictionary* attributes = @{ NSFontAttributeName : font };
@@ -187,6 +240,8 @@ void ButtonView::doLayout(Rect rect) {
     int i;
     (void)i;
 }
+
+// MARK: - TextField
 
 @interface PaddedView: NSView
 @property(nonatomic) id wrapped;
@@ -225,9 +280,9 @@ TextFieldView::TextFieldView(std::string defaultText) {
     _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
 }
 
-void TextFieldView::setText(std::string text) {
+void TextFieldView::setText(std::string /* text */) {
     NSTextField* field = transfer(_handle);
-    assert(false);
+    assert(field && false);
 }
 
 std::string TextFieldView::getText() const {
@@ -240,6 +295,8 @@ void TextFieldView::doLayout(Rect frame) {
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
+// MARK: - LabelView
+
 LabelView::LabelView(std::string text) {
     NSTextField* field = [NSTextField labelWithString:toNSString(text)];
     _handle = retain(field);
@@ -250,6 +307,8 @@ void LabelView::doLayout(Rect frame) {
     NSTextField* field = transfer(_handle);
     field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
 }
+
+// MARK: - ColorView
 
 @interface FlatColorView: NSView
 @property(nonatomic, strong) NSColor* color;
@@ -268,7 +327,17 @@ void LabelView::doLayout(Rect frame) {
     [[NSColor blackColor] setFill];
     NSRectFill(dirtyRect);
     [self.color setFill];
-    NSRectFill(NSInsetRect(dirtyRect, 10, 10));
+    NSRectFill(NSInsetRect(dirtyRect, 2, 2));
+
+    NSString* text = [NSString stringWithFormat:@"Width: %f\nHeight: %f",
+                                                self.frame.size.width,
+                                                self.frame.size.height];
+    NSDictionary* attributes = @{
+        NSFontAttributeName : [NSFont systemFontOfSize:12],
+        NSForegroundColorAttributeName : [NSColor blackColor]
+    };
+    NSRect textRect = NSInsetRect(dirtyRect, 15, 15);
+    [text drawInRect:textRect withAttributes:attributes];
 }
 @end
 

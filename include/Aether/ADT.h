@@ -29,6 +29,11 @@ namespace detail {
 template <typename T, size_t N>
 struct VecData;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 template <typename T>
 struct VecData<T, 2> {
     VecData() = default;
@@ -70,6 +75,10 @@ struct VecData<T, 4> {
         };
     };
 };
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace detail
 
@@ -195,8 +204,10 @@ struct Size: Vec<double, 2> {
 };
 
 struct Rect: Position, Size {
-    Position pos() const { return *this; };
-    Size size() const { return *this; };
+    Position& pos() { return *this; };
+    Position const& pos() const { return *this; };
+    Size& size() { return *this; };
+    Size const& size() const { return *this; };
 };
 
 constexpr Rect merge(Rect const& A, Rect const& B) {
@@ -308,7 +319,6 @@ protected:
         release();
         _ptr = other;
         retain();
-        return *this;
     }
 
 private:

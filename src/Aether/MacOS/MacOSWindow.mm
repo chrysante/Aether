@@ -20,7 +20,7 @@ struct internal::WindowImpl {
         window._content->layout({ { 0, 0 }, size });
     }
 
-    static void onResize(Window& window, Rect newFrame) {
+    static void onResize(Window& window, Rect /* newFrame */) {
         layoutContent(window);
     }
 };
@@ -120,6 +120,7 @@ void Window::setFrame(Rect frame, bool animate) {
 
 void Window::setTitle(std::string title) {
     NSWindow* window = transfer(_handle);
+    _title = std::move(title);
     window.title = toNSString(_title);
 }
 

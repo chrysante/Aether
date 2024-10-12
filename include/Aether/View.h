@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <Aether/ADT.h>
+#include <Aether/ViewProperties.h>
 
 namespace xui {
 
@@ -117,19 +118,59 @@ class SplitView: public AggregateView {
 public:
     SplitView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
-    struct Impl;
+    SplitterStyle splitterStyle() const { return _splitterStyle; }
+
+    void setSplitterStyle(SplitterStyle style);
+
+    std::optional<Color> const& splitterColor() const { return _splitterColor; }
+
+    void setSplitterColor(std::optional<Color> color);
+
+    std::optional<double> splitterThickness() const {
+        return _splitterThickness;
+    }
+
+    void setSplitterThickness(std::optional<double> thickness);
 
 private:
     void doLayout(Rect frame) override;
 
+    SplitterStyle _splitterStyle = SplitterStyle::Default;
+    std::optional<Color> _splitterColor;
+    std::optional<double> _splitterThickness;
     std::vector<double> childFractions;
 };
 
+/// User-resizable horizonal split view (Axis = X)
+///
+///     ┌─────────────┬─────────────┬─────────────┐
+///     │ children[0] │ children[1] │ children[2] │
+///     └─────────────┴─────────────┴─────────────┘
+///
 std::unique_ptr<SplitView> HSplit(UniqueVector<View> children);
 
+/// \overload
 template <size_t N>
 std::unique_ptr<SplitView> HSplit(std::unique_ptr<View> (&&children)[N]) {
     return HSplit(toUniqueVector(std::move(children)));
+}
+
+/// User-resizable vertical split view
+///
+///     ┌─────────────┐
+///     │ children[0] │
+///     ├─────────────┤
+///     │ children[1] │
+///     ├─────────────┤
+///     │ children[2] │
+///     └─────────────┘
+///
+std::unique_ptr<SplitView> VSplit(UniqueVector<View> children);
+
+/// \overload
+template <size_t N>
+std::unique_ptr<SplitView> VSplit(std::unique_ptr<View> (&&children)[N]) {
+    return VSplit(toUniqueVector(std::move(children)));
 }
 
 /// Button

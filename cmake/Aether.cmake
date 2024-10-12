@@ -2,13 +2,17 @@ set(SOURCE_FILES
     src/Aether/ADT.cpp
     src/Aether/Application.cpp
     src/Aether/Main.cpp
+    src/Aether/Modifiers.cpp
     src/Aether/View.cpp
+    src/Aether/ViewUtil.h
     src/Aether/Window.cpp
 )
 set(HEADER_FILES
     include/Aether/ADT.h
     include/Aether/Application.h
+    include/Aether/Modifiers.h
     include/Aether/View.h
+    include/Aether/ViewProperties.h
     include/Aether/Window.h
 )
 
@@ -41,4 +45,5 @@ target_include_directories(Aether
 
 target_link_libraries(Aether
     PRIVATE range-v3
+    PRIVATE WarningFlags
 )

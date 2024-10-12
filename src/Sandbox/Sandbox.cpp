@@ -5,52 +5,64 @@
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
+using namespace xui;
+
 namespace {
 
-struct Sandbox: xui::Application {
+struct Sandbox: Application {
     Sandbox() {
         window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
-        // auto content = xui::HStack({
+        // auto content = HStack({
         //     DetailPanel(),
         //     Sidebar(),
         // });
 
-        auto content = xui::HSplit({
-            // std::make_unique<xui::ColorView>(xui::Color{ 1, 1, 0, 1 }),
-            // std::make_unique<xui::ColorView>(xui::Color{ 1, 0, 1, 1 }),
-            // std::make_unique<xui::ColorView>(xui::Color{ 1, 0.5, 0, 1 }),
+        // std::unique_ptr<View> content = VSplit({
+        //     DetailPanel(),
+        //     Sidebar(),
+        //     Sidebar(),
+        // });
 
-            DetailPanel(),
-            Sidebar(),
-            Sidebar(),
-        });
+        auto content = HSplit({ VSplit({
+                                    std::make_unique<ColorView>(Color::Red()),
+                                    std::make_unique<ColorView>(Color::Green()),
+                                    std::make_unique<ColorView>(Color::Blue()),
+                                }) | SplitterStyle::Thin,
+                                Sidebar(),
+                                VSplit({
+                                    std::make_unique<ColorView>(Color::Red()),
+                                    std::make_unique<ColorView>(Color::Green()),
+                                }) | SplitterStyle::Thin });
+        splitView = content;
 
+        // content = HStack({
+        //     std::move(content) | Flex(),
+        //     std::make_unique<ColorView>(Color::Yellow()) | Flex()
+        // });
         window->setContentView(std::move(content));
     }
 
-    std::unique_ptr<xui::View> Sidebar() {
-        return xui::VStack(
-            { xui::Button("Option 1", [] { std::cout << "Hello\n"; }) |
-                  xui::PreferredWidth(100),
-              xui::Button("Option 2", [] { std::cout << "Hello\n"; }) |
-                  xui::XFlex(),
-              xui::Button("Option 3", [] { std::cout << "Hello\n"; }),
-              xui::Spacer(), xui::TextField("Input 1"),
-              xui::TextField("Input 2"), xui::TextField("Input 3"),
+    std::unique_ptr<View> Sidebar() {
+        return VStack(
+            { Button("Option 1", [] { std::cout << "Hello\n"; }) |
+                  PreferredWidth(100),
+              Button("Option 2", [] { std::cout << "Hello\n"; }) | XFlex(),
+              Button("Option 3", [] { std::cout << "Hello\n"; }), Spacer(),
+              TextField("Input 1"), TextField("Input 2"), TextField("Input 3"),
               HScroller() });
     }
 
-    std::unique_ptr<xui::View> HScroller() {
-        return xui::HScrollView({
-            xui::Button("Placeholder"),
-            xui::Button("Placeholder"),
-            xui::Button("Placeholder"),
-            xui::Button("Placeholder"),
-            xui::Button("Placeholder"),
+    std::unique_ptr<View> HScroller() {
+        return HScrollView({
+            Button("Placeholder"),
+            Button("Placeholder"),
+            Button("Placeholder"),
+            Button("Placeholder"),
+            Button("Placeholder"),
         });
     }
 
-    std::unique_ptr<xui::View> DetailPanel() {
+    std::unique_ptr<View> DetailPanel() {
         auto frameSetter = [&] {
             window->setFrame({ windowPos, { 500, 500 } }, true);
             windowPos.x += 100;
@@ -59,20 +71,28 @@ struct Sandbox: xui::Application {
         auto printText = [this] {
             std::cout << (textField ? textField->getText() : "") << std::endl;
         };
-        return xui::VScrollView(
-            { xui::Button("Print", printText) | xui::XFlex(),
-              xui::Button("B", [] { std::cout << "B\n"; }) | xui::XFlex(),
-              xui::Button("C", frameSetter) | xui::XFlex(),
-              textField.assign(xui::TextField("Input")) });
+        auto cycleSplitStyle = [this] {
+            auto curr = splitView->splitterStyle();
+            auto next = curr == SplitterStyle::Pane ?
+                            SplitterStyle::Thin :
+                            SplitterStyle((int)curr + 1);
+            splitView->setSplitterStyle(next);
+        };
+        return VScrollView(
+            { Button("Print", printText) | XFlex(),
+              Button("Cycle Splitstyle", cycleSplitStyle) | XFlex(),
+              Button("C", frameSetter) | XFlex(),
+              textField.assign(TextField("Input")) });
     }
 
-    std::unique_ptr<xui::Window> window;
-    xui::Position windowPos{};
-    xui::WeakRef<xui::TextFieldView> textField;
+    std::unique_ptr<Window> window;
+    Position windowPos{};
+    WeakRef<TextFieldView> textField;
+    WeakRef<SplitView> splitView;
 };
 
 } // namespace
 
-std::unique_ptr<xui::Application> xui::createApplication() {
+std::unique_ptr<Application> xui::createApplication() {
     return std::make_unique<Sandbox>();
 }

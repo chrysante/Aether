@@ -1,10 +1,12 @@
-
 add_executable(Sandbox MACOSX_BUNDLE)
 
 target_sources(Sandbox PRIVATE
     src/Sandbox/Sandbox.cpp
 )
-target_link_libraries(Sandbox PRIVATE Aether)
+target_link_libraries(Sandbox
+    PRIVATE Aether
+    PRIVATE WarningFlags
+)
 
 set(EXECUTABLE_NAME "Sandbox")
 configure_file("${CMAKE_SOURCE_DIR}/resource/Info.plist.in"

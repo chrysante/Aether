@@ -5,52 +5,71 @@
 #include <memory>
 
 #include <Aether/ADT.h>
+#include <Aether/View.h>
 
 namespace xui {
 
 class View;
 
 template <typename M, typename V>
-concept ModifierFor = std::invocable<M, V&>;
+concept ModifierFor =
+    requires(M&& mod, V& view) { applyModifier(std::forward<M>(mod), view); };
 
 template <std::derived_from<View> V>
 std::unique_ptr<V> operator|(std::unique_ptr<V>&& view,
-                             ModifierFor<V> auto const& mod) {
-    std::invoke(mod, *view);
+                             ModifierFor<V> auto&& mod) {
+    applyModifier(std::forward<decltype(mod)>(mod), *view);
     return std::move(view);
 }
 
+template <typename V, std::invocable<V&> M>
+void applyModifier(M&& mod, V& view) {
+    std::invoke(std::forward<M>(mod), view);
+}
+
 constexpr auto Flex() {
-    return [](auto& view) { view.setLayoutMode(LayoutMode::Flex); };
+    return [](View& view) { view.setLayoutMode(LayoutMode::Flex); };
 }
 
 constexpr auto XFlex() {
-    return [](auto& view) {
+    return [](View& view) {
         view.setLayoutMode({ LayoutMode::Flex, view.layoutMode().y });
     };
 }
 
 constexpr auto YFlex() {
-    return [](auto& view) {
+    return [](View& view) {
         view.setLayoutMode({ view.layoutMode().x, LayoutMode::Flex });
     };
 }
 
 constexpr auto PreferredSize(Size size) {
-    return [=](auto& view) { view.setPreferredSize(size); };
+    return [=](View& view) { view.setPreferredSize(size); };
 }
 
 constexpr auto PreferredWidth(double width) {
-    return [=](auto& view) {
+    return [=](View& view) {
         view.setPreferredSize({ width, view.preferredSize().height() });
     };
 }
 
 constexpr auto PreferredHeight(double height) {
-    return [=](auto& view) {
+    return [=](View& view) {
         view.setPreferredSize({ view.preferredSize().width(), height });
     };
 }
+
+inline void applyModifier(SplitterStyle style, SplitView& view) {
+    view.setSplitterStyle(style);
+}
+
+constexpr auto SplitterColor(std::optional<Color> const& color) {
+    return [=](SplitView& view) { view.setSplitterColor(color); };
+};
+
+constexpr auto SplitterThickness(std::optional<double> thickness) {
+    return [=](SplitView& view) { view.setSplitterThickness(thickness); };
+};
 
 } // namespace xui
 

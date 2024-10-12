@@ -4,6 +4,8 @@
 
 #include <range/v3/view.hpp>
 
+#include "Aether/ViewUtil.h"
+
 using namespace xui;
 
 static constexpr Size SpacerMinSize = { 5, 5 };
@@ -40,17 +42,6 @@ static StackLayoutConstraints gatherContraints(auto&& children) {
         }
     }
     return result;
-}
-
-static decltype(auto) dispatchAxis(Axis axis, auto&& f) {
-    switch (axis) {
-    case Axis::X:
-        return std::invoke(f, std::integral_constant<Axis, Axis::X>{});
-    case Axis::Y:
-        return std::invoke(f, std::integral_constant<Axis, Axis::Y>{});
-    case Axis::Z:
-        return std::invoke(f, std::integral_constant<Axis, Axis::Z>{});
-    }
 }
 
 namespace {
@@ -143,6 +134,10 @@ std::unique_ptr<ScrollView> xui::HScrollView(UniqueVector<View> children) {
 
 std::unique_ptr<SplitView> xui::HSplit(UniqueVector<View> children) {
     return std::make_unique<SplitView>(Axis::X, std::move(children));
+}
+
+std::unique_ptr<SplitView> xui::VSplit(UniqueVector<View> children) {
+    return std::make_unique<SplitView>(Axis::Y, std::move(children));
 }
 
 std::unique_ptr<ButtonView> xui::Button(std::string label,

@@ -13,5 +13,6 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 
+include(cmake/Options.cmake)
 include(cmake/Aether.cmake)
 include(cmake/Sandbox.cmake)

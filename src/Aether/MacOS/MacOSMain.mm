@@ -27,7 +27,7 @@ static std::unique_ptr<xui::Application> gApp;
 
 @end
 
-int macOSMain(int argc, char const** argv) {
+int macOSMain(int, char const**) {
     @autoreleasepool {
         // Create an instance of NSApplication
         NSApplication* NSApp = [NSApplication sharedApplication];

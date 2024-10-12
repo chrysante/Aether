@@ -1,6 +1,7 @@
 #ifndef AETHER_MACOS_MACOSUTIL_H
 #define AETHER_MACOS_MACOSUTIL_H
 
+#include <optional>
 #include <string>
 
 #import <Appkit/NSColor.h>
@@ -66,6 +67,10 @@ NSString* toNSString(char const* str);
 std::string toStdString(NSString* str);
 
 NSColor* toNSColor(Color const& color);
+
+inline NSColor* toNSColor(std::optional<Color> const& color) {
+    return color ? toNSColor(*color) : nil;
+}
 
 Color fromNSColor(NSColor* nsColor);
 
