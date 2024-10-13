@@ -91,6 +91,28 @@ constexpr auto SplitterThickness(std::optional<double> thickness) {
     return [=](SplitView& view) { view.setSplitterThickness(thickness); };
 };
 
+namespace detail {
+
+struct SplitViewCollapsableFn {
+    explicit constexpr SplitViewCollapsableFn(bool value): value(value) {}
+
+    constexpr SplitViewCollapsableFn operator()(bool value) const {
+        return SplitViewCollapsableFn(value);
+    }
+
+private:
+    friend void applyModifier(SplitViewCollapsableFn obj, View& view) {
+        view.setAttribute(detail::ViewAttributeKey::SplitViewCollapsable,
+                          obj.value);
+    }
+
+    bool value = true;
+};
+
+} // namespace detail
+
+inline constexpr detail::SplitViewCollapsableFn SplitViewCollapsable{ true };
+
 } // namespace xui
 
 #endif // AETHER_MODIFIERS_H

@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <optional>
+#include <span>
 
 #import <Appkit/Appkit.h>
 #import <Cocoa/Cocoa.h>
@@ -14,10 +15,12 @@
 
 using namespace xui;
 
-View::~View() { release(_handle); }
+// MARK: - View
+
+View::~View() { release(nativeHandle()); }
 
 Position View::position() const {
-    NSView* view = transfer(_handle);
+    NSView* view = transfer(nativeHandle());
     auto pos =
         fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
     pos.y -= view.frame.size.height;
@@ -25,8 +28,26 @@ Position View::position() const {
 }
 
 xui::Size View::size() const {
-    NSView* view = transfer(_handle);
+    NSView* view = transfer(nativeHandle());
     return fromNSSize(view.frame.size);
+}
+
+static void* NativeHandleKey = &NativeHandleKey;
+
+void View::setNativeHandle(void* handle) {
+    _nativeHandle = handle;
+    objc_setAssociatedObject(transfer(handle), NativeHandleKey,
+                             (__bridge id)this, OBJC_ASSOCIATION_ASSIGN);
+}
+
+static View* getView(NSView* view) {
+    return (View*)(__bridge void*)objc_getAssociatedObject(view,
+                                                           NativeHandleKey);
+}
+
+template <typename V>
+static V* getView(NSView* view) {
+    return dynamic_cast<V*>(getView(view));
 }
 
 // MARK: - StackView
@@ -39,11 +60,11 @@ StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
         NSView* childView = transfer(child->nativeHandle());
         [view addSubview:childView];
     }
-    _handle = retain(view);
+    setNativeHandle(retain(view));
 }
 
 void StackView::setFrame(Rect frame) {
-    NSView* view = transfer(_handle);
+    NSView* view = transfer(nativeHandle());
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
@@ -61,17 +82,17 @@ ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
     [VScrollView setDocumentView:content];
     VScrollView.hasHorizontalScroller = axis == Axis::X;
     VScrollView.hasVerticalScroller = axis == Axis::Y;
-    _handle = retain(VScrollView);
+    setNativeHandle(retain(VScrollView));
 }
 
 void ScrollView::setFrame(Rect frame) {
-    NSScrollView* view = transfer(_handle);
+    NSScrollView* view = transfer(nativeHandle());
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
     view.documentView.frame = { {}, view.frame.size };
 }
 
 void ScrollView::setDocumentSize(Size size) {
-    NSScrollView* view = transfer(_handle);
+    NSScrollView* view = transfer(nativeHandle());
     view.documentView.frame = { {}, toNSSize(size) };
 }
 
@@ -111,6 +132,13 @@ void ScrollView::setDocumentSize(Size size) {
     resizeSubviewsWithOldSize:(NSSize)oldSize {
 }
 
+- (BOOL)splitView:(NSSplitView*)splitView canCollapseSubview:(NSView*)subview {
+    auto* child = getView(subview);
+    auto value = child->getAttribute<bool>(
+        detail::ViewAttributeKey::SplitViewCollapsable);
+    return value.value_or(false);
+}
+
 - (CGFloat)splitView:(NSSplitView*)splitView
     constrainSplitPosition:(CGFloat)proposedPosition
                ofSubviewAt:(NSInteger)dividerIndex {
@@ -130,7 +158,7 @@ SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     for (auto& child: _children) {
         [view addSubview:transfer(child->nativeHandle())];
     }
-    _handle = retain(view);
+    setNativeHandle(retain(view));
     setSplitterStyle(_splitterStyle);
     static void const* const DelegateKey = &DelegateKey;
     [view setDelegate:gSplitViewDelegate];
@@ -150,30 +178,61 @@ static NSSplitViewDividerStyle toNS(SplitterStyle style) {
 
 void SplitView::setSplitterStyle(SplitterStyle style) {
     _splitterStyle = style;
-    NSSplitView* view = transfer(_handle);
+    NSSplitView* view = transfer(nativeHandle());
     view.dividerStyle = toNS(style);
 }
 
 void SplitView::setSplitterColor(std::optional<Color> color) {
     _splitterColor = color;
-    AetherSplitView* view = transfer(_handle);
+    AetherSplitView* view = transfer(nativeHandle());
     view.divColor = toNSColor(color);
 }
 
 void SplitView::setSplitterThickness(std::optional<double> thickness) {
     _splitterThickness = thickness;
-    AetherSplitView* view = transfer(_handle);
+    AetherSplitView* view = transfer(nativeHandle());
     view.divThickness = thickness;
 }
 
 double SplitView::sizeWithoutDividers() const {
-    NSSplitView* view = transfer(_handle);
-    return fromNSSize(view.frame.size)[(size_t)axis()] -
-           view.dividerThickness * (_children.size() - 1);
+    NSSplitView* view = transfer(nativeHandle());
+    double totalSize = fromNSSize(view.frame.size)[(size_t)axis()];
+    return totalSize - view.dividerThickness * (_children.size() - 1);
+}
+
+bool SplitView::isChildCollapsed(size_t childIndex) const {
+    NSSplitView* view = (NSSplitView*)transfer(nativeHandle());
+    NSView* subview = transfer(_children[childIndex]->nativeHandle());
+    return [view isSubviewCollapsed:subview];
+}
+
+static void handleSplitViewResize(SplitViewResizeStrategy strat, double fracSum,
+                                  std::span<double> fractions) {
+    using enum SplitViewResizeStrategy;
+    auto cutImpl = [&](double& frac) {
+        double diff = 1 - fracSum;
+        double newFrac = frac + diff;
+        frac = std::max(0.0, newFrac);
+    };
+    switch (strat) {
+    case Proportional:
+        for (auto& frac: fractions) {
+            frac /= fracSum;
+        }
+        break;
+    case CutMin:
+        cutImpl(fractions.front());
+        break;
+    case CutMax:
+        cutImpl(fractions.back());
+        break;
+    case None:
+        break;
+    }
 }
 
 void SplitView::didResizeSubviews() {
-    AetherSplitView* view = (AetherSplitView*)transfer(_handle);
+    AetherSplitView* view = (AetherSplitView*)transfer(nativeHandle());
     if (childFractions.empty()) {
         return;
     }
@@ -186,32 +245,13 @@ void SplitView::didResizeSubviews() {
         double size = child->size()[(size_t)axis()];
         double frac = size / totalSize;
         childFractions[i] = frac;
-        fracSum += frac;
-    }
-    if (fracSum != 1.0) {
-        using enum SplitViewResizeStrategy;
-        auto cutImpl = [&](double& frac) {
-            double diff = 1 - fracSum;
-            double newFrac = frac + diff;
-            frac = std::max(0.0, newFrac);
-        };
-        switch (resizeStrategy()) {
-        case Proportional:
-            for (auto& frac: childFractions) {
-                frac /= fracSum;
-            }
-            break;
-        case CutMin:
-            cutImpl(childFractions.front());
-            break;
-        case CutMax:
-            cutImpl(childFractions.back());
-            break;
-        case None:
-            break;
+        if (!isChildCollapsed(i)) {
+            fracSum += frac;
         }
     }
-
+    if (fracSum != 1.0) {
+        handleSplitViewResize(resizeStrategy(), fracSum, childFractions);
+    }
     layout(frame);
 }
 
@@ -226,25 +266,25 @@ double SplitView::constrainSplitPosition(double proposedPosition,
     leftPosition.y += left->size().height();
     leftPosition.y = size().height() - leftPosition.y;
     double currentPosition = leftPosition[AI] + left->size()[AI];
-    double offset = proposedPosition - currentPosition;
-    double leftNewSize = left->size()[AI] + offset;
-    double rightNewSize = right->size()[AI] - offset;
-    bool leftViolated = left->minSize()[AI] > leftNewSize;
-    bool rightViolated = right->minSize()[AI] > rightNewSize;
-    if (leftViolated && rightViolated) {
+    if (left->size()[AI] <= left->minSize()[AI] &&
+        right->size()[AI] <= right->minSize()[AI])
+    {
         return currentPosition;
     }
-    if (leftViolated) {
+    double offset = proposedPosition - currentPosition;
+    double leftNewSize = left->size()[AI] + offset;
+    if (left->minSize()[AI] > leftNewSize) {
         return leftPosition[AI] + left->minSize()[AI];
     }
-    if (rightViolated) {
+    double rightNewSize = right->size()[AI] - offset;
+    if (right->minSize()[AI] > rightNewSize) {
         return currentPosition + right->size()[AI] - right->minSize()[AI];
     }
     return proposedPosition;
 }
 
 void SplitView::doLayout(Rect frame) {
-    NSSplitView* view = transfer(_handle);
+    NSSplitView* view = transfer(nativeHandle());
     double dividerThickness = view.dividerThickness;
     auto newFrame = toAppkitCoords(frame, view.superview.frame.size.height);
     if (!NSEqualRects(view.frame, newFrame)) {
@@ -261,6 +301,10 @@ void SplitView::doLayout(Rect frame) {
     }
     double offset = 0;
     for (size_t i = 0; i < _children.size(); ++i) {
+        if (isChildCollapsed(i)) {
+            offset += dividerThickness;
+            continue;
+        }
         auto& child = _children[i];
         double frac = childFractions[i];
         assert(frac >= 0.0);
@@ -311,7 +355,7 @@ static xui::Size computeSize(NSString* text) {
 ButtonView::ButtonView(std::string label, std::function<void()> action):
     _label(std::move(label)), _action(std::move(action)) {
     NSButton* button = [[NSButton alloc] init];
-    _handle = retain(button);
+    setNativeHandle(retain(button));
     [button setTitle:toNSString(_label)];
     button.enabled = true;
     [button setActionBlock:^{
@@ -324,7 +368,7 @@ ButtonView::ButtonView(std::string label, std::function<void()> action):
 }
 
 void ButtonView::doLayout(Rect rect) {
-    NSButton* button = transfer(_handle);
+    NSButton* button = transfer(nativeHandle());
     button.frame = toAppkitCoords(rect, button.superview.frame.size.height);
     int i;
     (void)i;
@@ -364,23 +408,23 @@ TextFieldView::TextFieldView(std::string defaultText) {
     PaddedView* view = [[PaddedView alloc] initWithView:field];
     view.xPadding = 6;
     view.yPadding = 6;
-    _handle = retain(view);
+    setNativeHandle(retain(view));
     _minSize = _preferredSize = { 80, 34 };
     _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
 }
 
 void TextFieldView::setText(std::string /* text */) {
-    NSTextField* field = transfer(_handle);
+    NSTextField* field = transfer(nativeHandle());
     assert(field && false);
 }
 
 std::string TextFieldView::getText() const {
-    NSTextField* field = [transfer(_handle) wrapped];
+    NSTextField* field = [transfer(nativeHandle()) wrapped];
     return toStdString([field stringValue]);
 }
 
 void TextFieldView::doLayout(Rect frame) {
-    NSView* view = transfer(_handle);
+    NSView* view = transfer(nativeHandle());
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
@@ -388,12 +432,12 @@ void TextFieldView::doLayout(Rect frame) {
 
 LabelView::LabelView(std::string text) {
     NSTextField* field = [NSTextField labelWithString:toNSString(text)];
-    _handle = retain(field);
+    setNativeHandle(retain(field));
     _minSize = _preferredSize = { 80, 22 };
 }
 
 void LabelView::doLayout(Rect frame) {
-    NSTextField* field = transfer(_handle);
+    NSTextField* field = transfer(nativeHandle());
     field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
 }
 
@@ -433,10 +477,10 @@ void LabelView::doLayout(Rect frame) {
 ColorView::ColorView(Color const& color) {
     FlatColorView* view =
         [[FlatColorView alloc] initWithColor:toNSColor(color)];
-    _handle = retain(view);
+    setNativeHandle(retain(view));
 }
 
 void ColorView::doLayout(Rect frame) {
-    NSView* view = transfer(_handle);
+    NSView* view = transfer(nativeHandle());
     view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }

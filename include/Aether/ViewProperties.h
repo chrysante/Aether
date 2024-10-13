@@ -17,6 +17,14 @@ enum class SplitViewResizeStrategy {
     Default = Proportional
 };
 
+namespace detail {
+
+enum class ViewAttributeKey {
+    SplitViewCollapsable, // bool
+};
+
+}
+
 } // namespace xui
 
 #endif // AETHER_VIEWPROPERTIES_H

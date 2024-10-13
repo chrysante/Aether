@@ -1,9 +1,11 @@
 #ifndef AETHER_VIEW_H
 #define AETHER_VIEW_H
 
+#include <any>
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <Aether/ADT.h>
@@ -18,7 +20,7 @@ public:
 
     void layout(Rect frame);
 
-    void* nativeHandle() const { return _handle; }
+    void* nativeHandle() const { return _nativeHandle; }
 
     Size minSize() const { return _minSize; }
     Size maxSize() const { return _maxSize; }
@@ -37,8 +39,17 @@ public:
     View* parent() { return _parent; }
     View const* parent() const { return _parent; }
 
+    void setAttribute(detail::ViewAttributeKey key, std::any value);
+    std::any getAttribute(detail::ViewAttributeKey key) const;
+    template <typename T>
+    std::optional<T> getAttribute(detail::ViewAttributeKey key) const {
+        auto value = getAttribute(key);
+        auto* ptr = std::any_cast<T>(&value);
+        return ptr ? std::optional<T>(*ptr) : std::optional<T>();
+    }
+
 protected:
-    void* _handle = nullptr;
+    void setNativeHandle(void* handle);
 
     Size _minSize{}, _maxSize{ INFINITY, INFINITY }, _preferredSize{};
     Vec2<LayoutMode> _layoutMode = LayoutMode::Static;
@@ -48,6 +59,8 @@ private:
     friend class AggregateView;
 
     View* _parent = nullptr;
+    void* _nativeHandle = nullptr;
+    std::unordered_map<detail::ViewAttributeKey, std::any> _attribMap;
 };
 
 class SpacerView: public View {
@@ -160,6 +173,7 @@ private:
     void doLayout(Rect frame) override;
 
     double sizeWithoutDividers() const;
+    bool isChildCollapsed(size_t childIndex) const;
 
     SplitterStyle _splitterStyle = SplitterStyle::Default;
     std::optional<Color> _splitterColor;

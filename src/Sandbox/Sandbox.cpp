@@ -28,19 +28,15 @@ struct Sandbox: Application {
                 VSplit({
                     std::make_unique<ColorView>(Color::Red()),
                     std::make_unique<ColorView>(Color::Green()) |
-                        MinHeight(100),
+                        MinHeight(100) | SplitViewCollapsable,
                     std::make_unique<ColorView>(Color::Blue()),
-                }) | SplitterStyle::Thick,
-                Sidebar() | MinWidth(200),
-                VSplit({
-                    std::make_unique<ColorView>(Color::Red()) | MinHeight(100),
-                    std::make_unique<ColorView>(Color::Green()) |
-                        MinHeight(100),
-                }) | SplitterStyle::Thin |
-                    MinWidth(200),
+                }) | SplitterStyle::Thick |
+                    MinWidth(120) | SplitViewCollapsable,
+                Sidebar() | SplitViewCollapsable(false),
+                DetailPanel() | MinWidth(150) | SplitViewCollapsable,
                 std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
             }) |
-            SplitViewResizeStrategy::CutMax;
+            SplitViewResizeStrategy::Proportional;
         splitView = content;
 
         // content = HStack({
@@ -51,13 +47,14 @@ struct Sandbox: Application {
     }
 
     std::unique_ptr<View> Sidebar() {
-        return VStack(
-            { Button("Option 1", [] { std::cout << "Hello\n"; }) |
-                  PreferredWidth(100),
-              Button("Option 2", [] { std::cout << "Hello\n"; }) | XFlex(),
-              Button("Option 3", [] { std::cout << "Hello\n"; }), Spacer(),
-              TextField("Input 1"), TextField("Input 2"), TextField("Input 3"),
-              HScroller() });
+        return VStack({ Button("Option 1", [] { std::cout << "Hello\n"; }) |
+                            PreferredWidth(100),
+                        Button("Option 2", [] { std::cout << "Hello\n"; }) |
+                            XFlex(),
+                        Button("Option 3", [] { std::cout << "Hello\n"; }),
+                        Spacer(), TextField("Input 1"), TextField("Input 2"),
+                        TextField("Input 3"), HScroller() }) |
+               MinWidth(200);
     }
 
     std::unique_ptr<View> HScroller() {

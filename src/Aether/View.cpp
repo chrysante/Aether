@@ -10,6 +10,15 @@ using namespace xui;
 
 void View::layout(Rect frame) { doLayout(frame); }
 
+void View::setAttribute(detail::ViewAttributeKey key, std::any value) {
+    _attribMap.insert_or_assign(key, std::move(value));
+}
+
+std::any View::getAttribute(detail::ViewAttributeKey key) const {
+    auto itr = _attribMap.find(key);
+    return itr != _attribMap.end() ? itr->second : std::any();
+}
+
 AggregateView::AggregateView(Axis axis,
                              std::vector<std::unique_ptr<View>> children):
     _axis(axis), _children(std::move(children)) {
