@@ -41,10 +41,10 @@ std::string xui::toStdString(NSString* str) {
 }
 
 NSColor* xui::toNSColor(Color const& c) {
-    return [NSColor colorWithCalibratedRed:c.red()
-                                     green:c.green()
-                                      blue:c.blue()
-                                     alpha:c.alpha()];
+    return [NSColor colorWithRed:c.red()
+                           green:c.green()
+                            blue:c.blue()
+                           alpha:c.alpha()];
 }
 
 Color xui::fromNSColor(NSColor* nsColor) {

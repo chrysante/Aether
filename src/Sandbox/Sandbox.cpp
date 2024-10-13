@@ -17,13 +17,7 @@ struct Sandbox: Application {
         //     Sidebar(),
         // });
 
-        // std::unique_ptr<View> content = VSplit({
-        //     DetailPanel(),
-        //     Sidebar(),
-        //     Sidebar(),
-        // });
-
-        auto content =
+        window->setContentView(
             HSplit({
                 VSplit({
                     std::make_unique<ColorView>(Color::Red()),
@@ -36,14 +30,7 @@ struct Sandbox: Application {
                 DetailPanel() | MinWidth(150) | SplitViewCollapsable,
                 std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
             }) |
-            SplitViewResizeStrategy::Proportional;
-        splitView = content;
-
-        // content = HStack({
-        //     std::move(content) | Flex(),
-        //     std::make_unique<ColorView>(Color::Yellow()) | Flex()
-        // });
-        window->setContentView(std::move(content));
+            SplitViewResizeStrategy::Proportional | AssignTo(splitView));
     }
 
     std::unique_ptr<View> Sidebar() {

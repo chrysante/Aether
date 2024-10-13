@@ -113,6 +113,12 @@ private:
 
 inline constexpr detail::SplitViewCollapsableFn SplitViewCollapsable{ true };
 
+/// Modifier used to assign rvalue views to weak references
+template <typename V>
+auto AssignTo(WeakRef<V>& ref) {
+    return [&](V& view) { ref = &view; };
+}
+
 } // namespace xui
 
 #endif // AETHER_MODIFIERS_H
