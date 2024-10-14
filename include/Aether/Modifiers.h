@@ -77,15 +77,23 @@ constexpr auto MinHeight(double height) {
 
 constexpr auto PaddingX(std::optional<double> value) {
     return [=](View& view) {
-        view.setAttribute(ViewAttributeKey::PaddingX, value);
+        view.setAttribute<ViewAttributeKey::PaddingX>(value);
     };
 };
 
 constexpr auto PaddingY(std::optional<double> value) {
     return [=](View& view) {
-        view.setAttribute(ViewAttributeKey::PaddingY, value);
+        view.setAttribute<ViewAttributeKey::PaddingY>(value);
     };
 };
+
+inline void applyModifier(AlignX align, View& view) {
+    view.setAttribute<ViewAttributeKey::AlignX>(align);
+}
+
+inline void applyModifier(AlignY align, View& view) {
+    view.setAttribute<ViewAttributeKey::AlignY>(align);
+}
 
 inline void applyModifier(SplitterStyle style, SplitView& view) {
     view.setSplitterStyle(style);
@@ -114,7 +122,7 @@ struct SplitViewCollapsableFn {
 
 private:
     friend void applyModifier(SplitViewCollapsableFn obj, View& view) {
-        view.setAttribute(ViewAttributeKey::SplitViewCollapsable, obj.value);
+        view.setAttribute<ViewAttributeKey::SplitViewCollapsable>(obj.value);
     }
 
     bool value = true;

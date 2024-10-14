@@ -9,11 +9,11 @@
 using namespace xui;
 
 void View::layout(Rect frame) {
-    if (auto padding = getAttribute<double>(ViewAttributeKey::PaddingX)) {
+    if (auto padding = getAttribute<ViewAttributeKey::PaddingX>()) {
         frame.pos().x += *padding;
         frame.width() -= 2 * *padding;
     }
-    if (auto padding = getAttribute<double>(ViewAttributeKey::PaddingY)) {
+    if (auto padding = getAttribute<ViewAttributeKey::PaddingY>()) {
         frame.pos().y += *padding;
         frame.height() -= 2 * *padding;
     }
@@ -84,6 +84,31 @@ struct ChildrenLayoutOptions {
 } // namespace
 
 template <Axis A>
+static Position computeAlignedPosition(View const& child, Size childSize,
+                                       Size parentSize, double cursor) {
+    using AlignType = std::conditional_t<A == Axis::X, AlignY, AlignX>;
+    constexpr ViewAttributeKey Key = A == Axis::X ? ViewAttributeKey::AlignY :
+                                                    ViewAttributeKey::AlignX;
+    auto align = child.getAttribute<Key>().value_or(AlignType{});
+    Vec2<double> sizeDiff = parentSize - childSize;
+    double otherCoord = [&] {
+        switch ((AlignX)align) {
+            using enum AlignX;
+        case Left:
+            return 0.0;
+        case Center:
+            return sizeDiff[(size_t)flip(A)] / 2;
+        case Right:
+            return sizeDiff[(size_t)flip(A)];
+        }
+    }();
+    Position pos{};
+    pos[(size_t)A] = cursor;
+    pos[(size_t)flip(A)] = otherCoord;
+    return pos;
+}
+
+template <Axis A>
 static Rect layoutChildrenXY(auto&& children, Rect frame,
                              ChildrenLayoutOptions opt) {
     static_assert(A != Axis::Z);
@@ -107,9 +132,11 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
             }
         }
         Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
-        Rect childRect{ Position(A, cursor), childSize };
+        Position childPosition =
+            computeAlignedPosition<A>(*child, childSize, frame.size(), cursor);
+        Rect childRect{ childPosition, childSize };
         child->layout(childRect);
-        cursor += get<(size_t)A>(childSize);
+        cursor += childSize[(size_t)A];
         total = merge(total, childRect);
     }
     return total;

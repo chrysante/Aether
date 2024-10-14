@@ -35,10 +35,11 @@ struct Sandbox: Application {
 
     std::unique_ptr<View> Sidebar() {
         return VStack({ Button("Option 1", [] { std::cout << "Hello\n"; }) |
-                            PreferredWidth(100),
+                            PreferredWidth(100) | AlignX::Center,
                         Button("Option 2", [] { std::cout << "Hello\n"; }) |
                             XFlex(),
-                        Button("Option 3", [] { std::cout << "Hello\n"; }),
+                        Button("Option 3", [] { std::cout << "Hello\n"; }) |
+                            AlignX::Right,
                         Spacer(), TextField("Input 1"), TextField("Input 2"),
                         TextField("Input 3"), HScroller() }) |
                MinWidth(200);
@@ -47,9 +48,9 @@ struct Sandbox: Application {
     std::unique_ptr<View> HScroller() {
         return HScrollView({
             Button("Placeholder"),
-            Button("Placeholder"),
-            Button("Placeholder"),
-            Button("Placeholder"),
+            Button("Placeholder") | AlignY::Center,
+            Button("Placeholder") | AlignY::Bottom,
+            Button("Placeholder") | AlignY::Center,
             Button("Placeholder"),
         });
     }
@@ -76,7 +77,8 @@ struct Sandbox: Application {
               Button("C", frameSetter) | XFlex(),
               ProgressBar() | XFlex() | PaddingX(8),
               ProgressSpinner() | XFlex() | PaddingX(8),
-              textField.assign(TextField("Input")) });
+              TextField("Input") | AssignTo(textField),
+              std::make_unique<SwitchView>() });
     }
 
     std::unique_ptr<Window> window;

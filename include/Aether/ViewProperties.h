@@ -3,6 +3,9 @@
 
 namespace xui {
 
+enum class AlignX { Left, Center, Right };
+enum class AlignY { Top, Center, Bottom };
+
 enum class SplitterStyle { Thin, Thick, Pane, Default = Thin };
 
 enum class SplitViewResizeStrategy {
@@ -22,7 +25,9 @@ enum class SplitViewResizeStrategy {
     /* Name                 Type */                                            \
     X(SplitViewCollapsable, bool)                                              \
     X(PaddingX, double)                                                        \
-    X(PaddingY, double)
+    X(PaddingY, double)                                                        \
+    X(AlignX, AlignX)                                                          \
+    X(AlignY, AlignY)
 
 enum class ViewAttributeKey {
 #define X(Name, Type) Name,

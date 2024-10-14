@@ -42,13 +42,25 @@ public:
     /// \Returns the value of the attribute \p key if present, otherwise
     /// `std::nullopt` A call to this function is ill-format if \p T is not the
     /// type of the attribute \p key
-    template <typename T>
-    std::optional<T> getAttribute(detail::ViewAttributeKeyGetter<T> key) const;
+    template <ViewAttributeKey Key>
+    std::optional<detail::ViewAttribKeyType<Key>> getAttribute() const {
+        if (auto value = getAttributeImpl(Key); value.has_value()) {
+            return std::any_cast<detail::ViewAttribKeyType<Key>>(value);
+        }
+        return std::nullopt;
+    }
 
     /// Sets the attribute \p key to \p value or, if \p value is an empty
     /// `std::optional<T>`, clears the attribute value
-    template <typename T>
-    void setAttribute(detail::ViewAttributeKeySetter<T> key, T&& value);
+    template <ViewAttributeKey Key>
+    void setAttribute(std::optional<detail::ViewAttribKeyType<Key>> value) {
+        if (value) {
+            setAttributeImpl(Key, *std::move(value));
+        }
+        else {
+            clearAttributeImpl(Key);
+        }
+    }
 
 protected:
     void setNativeHandle(void* handle);
@@ -69,36 +81,6 @@ private:
     void* _nativeHandle = nullptr;
     std::unordered_map<ViewAttributeKey, std::any> _attribMap;
 };
-
-/// Inline implementation
-
-template <typename T>
-std::optional<T> View::getAttribute(
-    detail::ViewAttributeKeyGetter<T> key) const {
-    if (auto value = getAttributeImpl(key.value); value.has_value()) {
-        return std::any_cast<T>(value);
-    }
-    return std::nullopt;
-}
-
-template <typename T>
-void View::setAttribute(detail::ViewAttributeKeySetter<T> key, T&& value) {
-    switch (key.value) {
-#define X(Name, Type)                                                          \
-    case ViewAttributeKey::Name:                                               \
-        if (std::optional<detail::ViewAttribKeyType<ViewAttributeKey::Name>>   \
-                optVal = std::forward<T>(value))                               \
-        {                                                                      \
-            setAttributeImpl(key.value, *std::move(optVal));                   \
-        }                                                                      \
-        else {                                                                 \
-            clearAttributeImpl(key.value);                                     \
-        }                                                                      \
-        break;
-        AETHER_VIEW_ATTRIB_KEY(X)
-#undef X
-    }
-}
 
 class SpacerView: public View {
 public:
@@ -269,6 +251,15 @@ private:
 
 std::unique_ptr<ButtonView> Button(std::string label,
                                    std::function<void()> action = {});
+
+/// Switch
+class SwitchView: public View {
+public:
+    SwitchView();
+
+private:
+    void doLayout(Rect frame) override;
+};
 
 ///
 class TextFieldView: public View {

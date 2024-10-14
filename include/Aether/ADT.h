@@ -355,18 +355,6 @@ public:
 
     WeakRef& operator=(T& arg) { this->_assign(&arg); }
 
-    T& assign(T& ptr) { return *assign(&ptr); }
-
-    T* assign(T* ptr) {
-        this->_assign(ptr);
-        return ptr;
-    }
-
-    std::unique_ptr<T> assign(std::unique_ptr<T>&& ptr) {
-        this->_assign(ptr.get());
-        return std::move(ptr);
-    }
-
     T* get() const { return static_cast<T*>(this->_ptr); }
 
     T* operator->() const { return get(); }

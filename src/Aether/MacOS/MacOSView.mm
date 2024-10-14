@@ -134,8 +134,7 @@ void ScrollView::setDocumentSize(Size size) {
 
 - (BOOL)splitView:(NSSplitView*)splitView canCollapseSubview:(NSView*)subview {
     auto* child = getView(subview);
-    auto value =
-        child->getAttribute<bool>(ViewAttributeKey::SplitViewCollapsable);
+    auto value = child->getAttribute<ViewAttributeKey::SplitViewCollapsable>();
     return value.value_or(false);
 }
 
@@ -370,8 +369,19 @@ ButtonView::ButtonView(std::string label, std::function<void()> action):
 void ButtonView::doLayout(Rect rect) {
     NSButton* button = transfer(nativeHandle());
     button.frame = toAppkitCoords(rect, button.superview.frame.size.height);
-    int i;
-    (void)i;
+}
+
+// MARK: - Switch
+
+SwitchView::SwitchView() {
+    NSSwitch* view = [[NSSwitch alloc] init];
+    setNativeHandle(retain(view));
+    _minSize = _preferredSize = fromNSSize(view.intrinsicContentSize);
+}
+
+void SwitchView::doLayout(Rect frame) {
+    NSSwitch* view = transfer(nativeHandle());
+    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
 // MARK: - TextField
@@ -380,8 +390,8 @@ TextFieldView::TextFieldView(std::string defaultText) {
     NSTextField* view =
         [NSTextField textFieldWithString:toNSString(defaultText)];
     view.bezelStyle = NSTextFieldRoundedBezel;
-    setAttribute(ViewAttributeKey::PaddingX, 6.0);
-    setAttribute(ViewAttributeKey::PaddingY, 6);
+    setAttribute<ViewAttributeKey::PaddingX>(6);
+    setAttribute<ViewAttributeKey::PaddingY>(6);
     setNativeHandle(retain(view));
     _minSize = _preferredSize = { 80, 34 };
     _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
