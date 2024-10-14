@@ -195,7 +195,7 @@ void SplitView::setSplitterThickness(std::optional<double> thickness) {
 
 double SplitView::sizeWithoutDividers() const {
     NSSplitView* view = transfer(nativeHandle());
-    double totalSize = fromNSSize(view.frame.size)[(size_t)axis()];
+    double totalSize = fromNSSize(view.frame.size)[axis()];
     return totalSize - view.dividerThickness * (_children.size() - 1);
 }
 
@@ -241,7 +241,7 @@ void SplitView::didResizeSubviews() {
     double fracSum = 0;
     for (size_t i = 0; i < _children.size(); ++i) {
         auto* child = _children[i].get();
-        double size = child->size()[(size_t)axis()];
+        double size = child->size()[axis()];
         double frac = size / totalSize;
         childFractions[i] = frac;
         if (!isChildCollapsed(i)) {
@@ -256,7 +256,6 @@ void SplitView::didResizeSubviews() {
 
 double SplitView::constrainSplitPosition(double proposedPosition,
                                          size_t index) const {
-    size_t const AI = (size_t)axis();
     auto* left = _children[index].get();
     auto* right = _children[index + 1].get();
     // Must transform the position again because of the flipped coordinate
@@ -264,20 +263,21 @@ double SplitView::constrainSplitPosition(double proposedPosition,
     Position leftPosition = left->position();
     leftPosition.y += left->size().height();
     leftPosition.y = size().height() - leftPosition.y;
-    double currentPosition = leftPosition[AI] + left->size()[AI];
-    if (left->size()[AI] <= left->minSize()[AI] &&
-        right->size()[AI] <= right->minSize()[AI])
+    double currentPosition = leftPosition[axis()] + left->size()[axis()];
+    if (left->size()[axis()] <= left->minSize()[axis()] &&
+        right->size()[axis()] <= right->minSize()[axis()])
     {
         return currentPosition;
     }
     double offset = proposedPosition - currentPosition;
-    double leftNewSize = left->size()[AI] + offset;
-    if (left->minSize()[AI] > leftNewSize) {
-        return leftPosition[AI] + left->minSize()[AI];
+    double leftNewSize = left->size()[axis()] + offset;
+    if (left->minSize()[axis()] > leftNewSize) {
+        return leftPosition[axis()] + left->minSize()[axis()];
     }
-    double rightNewSize = right->size()[AI] - offset;
-    if (right->minSize()[AI] > rightNewSize) {
-        return currentPosition + right->size()[AI] - right->minSize()[AI];
+    double rightNewSize = right->size()[axis()] - offset;
+    if (right->minSize()[axis()] > rightNewSize) {
+        return currentPosition + right->size()[axis()] -
+               right->minSize()[axis()];
     }
     return proposedPosition;
 }
@@ -309,7 +309,7 @@ void SplitView::doLayout(Rect frame) {
         assert(frac >= 0.0);
         double childSize = totalSize * frac;
         Rect childFrame = { Position(axis(), offset), frame.size() };
-        childFrame.size()[(size_t)axis()] = childSize;
+        childFrame.size()[axis()] = childSize;
         if (axis() == Axis::Y) {
             // We need to do this coordinate transform dance because here AppKit
             // uses top-left -> bottom-right coordinates, unlike everywhere else

@@ -94,9 +94,7 @@ public:
 
     using Base::Base;
 
-    constexpr explicit Vec(Axis axis, T value): Vec() {
-        (*this)[(size_t)axis] = value;
-    }
+    constexpr explicit Vec(Axis axis, T value): Vec() { (*this)[axis] = value; }
 
     constexpr T& operator[](size_t i) {
         assert(i < N);
@@ -106,6 +104,8 @@ public:
         assert(i < N);
         return data[i];
     }
+    constexpr T& operator[](Axis a) { return (*this)[(size_t)a]; }
+    constexpr T const& operator[](Axis a) const { return (*this)[(size_t)a]; }
 
     constexpr T* begin() { return &data[0]; }
     constexpr T const* begin() const { return &data[0]; }

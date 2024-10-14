@@ -63,9 +63,9 @@ template <Axis A>
 static StackLayoutConstraints gatherContraints(auto&& children) {
     StackLayoutConstraints result{};
     for (View const* child: children) {
-        switch (get<(size_t)A>(child->layoutMode())) {
+        switch (child->layoutMode()[A]) {
         case LayoutMode::Static:
-            result.totalMinSize += get<(size_t)A>(child->minSize());
+            result.totalMinSize += child->minSize()[A];
             break;
         case LayoutMode::Flex:
             ++result.numFlexChildren;
@@ -97,14 +97,14 @@ static Position computeAlignedPosition(View const& child, Size childSize,
         case Left:
             return 0.0;
         case Center:
-            return sizeDiff[(size_t)flip(A)] / 2;
+            return sizeDiff[flip(A)] / 2;
         case Right:
-            return sizeDiff[(size_t)flip(A)];
+            return sizeDiff[flip(A)];
         }
     }();
     Position pos{};
-    pos[(size_t)A] = cursor;
-    pos[(size_t)flip(A)] = otherCoord;
+    pos[A] = cursor;
+    pos[flip(A)] = otherCoord;
     return pos;
 }
 
@@ -114,7 +114,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
     static_assert(A != Axis::Z);
     auto constraints = gatherContraints<A>(children);
     double flexSpace =
-        std::max(0.0, get<(size_t)A>(frame.size()) - constraints.totalMinSize);
+        std::max(0.0, frame.size()[A] - constraints.totalMinSize);
     double cursor = 0;
     Rect total{};
     for (View* child: children) {
@@ -128,7 +128,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
                 prefSize[index] = flexSpace / constraints.numFlexChildren;
             }
             else {
-                prefSize[index] = get<1 - (size_t)A>(frame.size());
+                prefSize[index] = frame.size()[flip(A)];
             }
         }
         Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
@@ -136,7 +136,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
             computeAlignedPosition<A>(*child, childSize, frame.size(), cursor);
         Rect childRect{ childPosition, childSize };
         child->layout(childRect);
-        cursor += childSize[(size_t)A];
+        cursor += childSize[A];
         total = merge(total, childRect);
     }
     return total;
