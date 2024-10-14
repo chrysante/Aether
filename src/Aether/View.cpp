@@ -9,26 +9,24 @@
 using namespace xui;
 
 void View::layout(Rect frame) {
-    if (auto paddingX =
-            getAttribute<double>(detail::ViewAttributeKey::PaddingX))
-    {
-        frame.pos().x += *paddingX;
-        frame.width() -= 2 * *paddingX;
+    if (auto padding = getAttribute<double>(ViewAttributeKey::PaddingX)) {
+        frame.pos().x += *padding;
+        frame.width() -= 2 * *padding;
     }
-    if (auto paddingY =
-            getAttribute<double>(detail::ViewAttributeKey::PaddingY))
-    {
-        frame.pos().y += *paddingY;
-        frame.height() -= 2 * *paddingY;
+    if (auto padding = getAttribute<double>(ViewAttributeKey::PaddingY)) {
+        frame.pos().y += *padding;
+        frame.height() -= 2 * *padding;
     }
     doLayout(frame);
 }
 
-void View::setAttribute(detail::ViewAttributeKey key, std::any value) {
+void View::setAttributeImpl(ViewAttributeKey key, std::any value) {
     _attribMap.insert_or_assign(key, std::move(value));
 }
 
-std::any View::getAttribute(detail::ViewAttributeKey key) const {
+void View::clearAttributeImpl(ViewAttributeKey key) { _attribMap.erase(key); }
+
+std::any View::getAttributeImpl(ViewAttributeKey key) const {
     auto itr = _attribMap.find(key);
     return itr != _attribMap.end() ? itr->second : std::any();
 }

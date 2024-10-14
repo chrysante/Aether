@@ -134,8 +134,8 @@ void ScrollView::setDocumentSize(Size size) {
 
 - (BOOL)splitView:(NSSplitView*)splitView canCollapseSubview:(NSView*)subview {
     auto* child = getView(subview);
-    auto value = child->getAttribute<bool>(
-        detail::ViewAttributeKey::SplitViewCollapsable);
+    auto value =
+        child->getAttribute<bool>(ViewAttributeKey::SplitViewCollapsable);
     return value.value_or(false);
 }
 
@@ -376,38 +376,12 @@ void ButtonView::doLayout(Rect rect) {
 
 // MARK: - TextField
 
-@interface PaddedView: NSView
-@property(nonatomic) id wrapped;
-@property(nonatomic) double xPadding;
-@property(nonatomic) double yPadding;
-@end
-
-@implementation PaddedView
-
-- (instancetype)initWithView:(NSView*)view {
-    self = [super init];
-    self.wrapped = view;
-    [self addSubview:view];
-    return self;
-}
-
-- (void)setFrame:(NSRect)newFrame {
-    NSRect inset = CGRectMake(self.xPadding, self.yPadding,
-                              newFrame.size.width - 2 * self.xPadding,
-                              newFrame.size.height - 2 * self.yPadding);
-    [super setFrame:newFrame];
-    [self.wrapped setFrame:inset];
-}
-
-@end
-
 TextFieldView::TextFieldView(std::string defaultText) {
-    NSTextField* field =
+    NSTextField* view =
         [NSTextField textFieldWithString:toNSString(defaultText)];
-    field.bezelStyle = NSTextFieldRoundedBezel;
-    PaddedView* view = [[PaddedView alloc] initWithView:field];
-    view.xPadding = 6;
-    view.yPadding = 6;
+    view.bezelStyle = NSTextFieldRoundedBezel;
+    setAttribute(ViewAttributeKey::PaddingX, 6.0);
+    setAttribute(ViewAttributeKey::PaddingY, 6);
     setNativeHandle(retain(view));
     _minSize = _preferredSize = { 80, 34 };
     _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
@@ -419,7 +393,7 @@ void TextFieldView::setText(std::string /* text */) {
 }
 
 std::string TextFieldView::getText() const {
-    NSTextField* field = [transfer(nativeHandle()) wrapped];
+    NSTextField* field = transfer(nativeHandle());
     return toStdString([field stringValue]);
 }
 

@@ -17,15 +17,76 @@ enum class SplitViewResizeStrategy {
     Default = Proportional
 };
 
-namespace detail {
+/// X-Macro definition of view attributes
+#define AETHER_VIEW_ATTRIB_KEY(X)                                              \
+    /* Name                 Type */                                            \
+    X(SplitViewCollapsable, bool)                                              \
+    X(PaddingX, double)                                                        \
+    X(PaddingY, double)
 
 enum class ViewAttributeKey {
-    SplitViewCollapsable, // bool
-    PaddingX,             // double
-    PaddingY,             // double
+#define X(Name, Type) Name,
+    AETHER_VIEW_ATTRIB_KEY(X)
+#undef X
 };
 
-}
+namespace detail {
+
+template <ViewAttributeKey>
+struct ViewAttribKeyTypeImpl;
+#define X(Name, Type)                                                          \
+    template <>                                                                \
+    struct ViewAttribKeyTypeImpl<ViewAttributeKey::Name>:                      \
+        std::type_identity<Type> {};
+AETHER_VIEW_ATTRIB_KEY(X)
+#undef X
+
+template <ViewAttributeKey Key>
+using ViewAttribKeyType = typename ViewAttribKeyTypeImpl<Key>::type;
+
+template <typename T>
+struct ViewAttributeKeySetterImpl {
+    consteval ViewAttributeKeySetterImpl(ViewAttributeKey key): value(key) {
+        switch (key) {
+#define X(Name, Type)                                                          \
+    case ViewAttributeKey::Name:                                               \
+        assert((std::constructible_from<                                       \
+                std::optional<ViewAttribKeyType<ViewAttributeKey::Name>>,      \
+                T&&>));                                                        \
+        break;
+            AETHER_VIEW_ATTRIB_KEY(X)
+#undef X
+        }
+    }
+
+    ViewAttributeKey value;
+};
+
+template <typename T>
+using ViewAttributeKeySetter =
+    ViewAttributeKeySetterImpl<std::type_identity_t<T>>;
+
+template <typename T>
+struct ViewAttributeKeyGetterImpl {
+    consteval ViewAttributeKeyGetterImpl(ViewAttributeKey key): value(key) {
+        switch (key) {
+#define X(Name, Type)                                                          \
+    case ViewAttributeKey::Name:                                               \
+        assert((std::same_as<T, ViewAttribKeyType<ViewAttributeKey::Name>>));  \
+        break;
+            AETHER_VIEW_ATTRIB_KEY(X)
+#undef X
+        }
+    }
+
+    ViewAttributeKey value;
+};
+
+template <typename T>
+using ViewAttributeKeyGetter =
+    ViewAttributeKeyGetterImpl<std::type_identity_t<T>>;
+
+} // namespace detail
 
 } // namespace xui
 

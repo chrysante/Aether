@@ -39,14 +39,16 @@ public:
     View* parent() { return _parent; }
     View const* parent() const { return _parent; }
 
-    void setAttribute(detail::ViewAttributeKey key, std::any value);
-    std::any getAttribute(detail::ViewAttributeKey key) const;
+    /// \Returns the value of the attribute \p key if present, otherwise
+    /// `std::nullopt` A call to this function is ill-format if \p T is not the
+    /// type of the attribute \p key
     template <typename T>
-    std::optional<T> getAttribute(detail::ViewAttributeKey key) const {
-        auto value = getAttribute(key);
-        auto* ptr = std::any_cast<T>(&value);
-        return ptr ? std::optional<T>(*ptr) : std::optional<T>();
-    }
+    std::optional<T> getAttribute(detail::ViewAttributeKeyGetter<T> key) const;
+
+    /// Sets the attribute \p key to \p value or, if \p value is an empty
+    /// `std::optional<T>`, clears the attribute value
+    template <typename T>
+    void setAttribute(detail::ViewAttributeKeySetter<T> key, T&& value);
 
 protected:
     void setNativeHandle(void* handle);
@@ -55,13 +57,48 @@ protected:
     Vec2<LayoutMode> _layoutMode = LayoutMode::Static;
 
 private:
+    friend class AggregateView; // To set _parent
+
+    void setAttributeImpl(ViewAttributeKey key, std::any value);
+    void clearAttributeImpl(ViewAttributeKey key);
+    std::any getAttributeImpl(ViewAttributeKey key) const;
+
     virtual void doLayout(Rect rect) = 0;
-    friend class AggregateView;
 
     View* _parent = nullptr;
     void* _nativeHandle = nullptr;
-    std::unordered_map<detail::ViewAttributeKey, std::any> _attribMap;
+    std::unordered_map<ViewAttributeKey, std::any> _attribMap;
 };
+
+/// Inline implementation
+
+template <typename T>
+std::optional<T> View::getAttribute(
+    detail::ViewAttributeKeyGetter<T> key) const {
+    if (auto value = getAttributeImpl(key.value); value.has_value()) {
+        return std::any_cast<T>(value);
+    }
+    return std::nullopt;
+}
+
+template <typename T>
+void View::setAttribute(detail::ViewAttributeKeySetter<T> key, T&& value) {
+    switch (key.value) {
+#define X(Name, Type)                                                          \
+    case ViewAttributeKey::Name:                                               \
+        if (std::optional<detail::ViewAttribKeyType<ViewAttributeKey::Name>>   \
+                optVal = std::forward<T>(value))                               \
+        {                                                                      \
+            setAttributeImpl(key.value, *std::move(optVal));                   \
+        }                                                                      \
+        else {                                                                 \
+            clearAttributeImpl(key.value);                                     \
+        }                                                                      \
+        break;
+        AETHER_VIEW_ATTRIB_KEY(X)
+#undef X
+    }
+}
 
 class SpacerView: public View {
 public:
