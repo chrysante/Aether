@@ -441,6 +441,29 @@ void LabelView::doLayout(Rect frame) {
     field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
 }
 
+// MARK: - ProgressIndicatorView
+
+ProgressIndicatorView::ProgressIndicatorView(Style style) {
+    NSProgressIndicator* view = [[NSProgressIndicator alloc] init];
+    switch (style) {
+    case Bar:
+        view.style = NSProgressIndicatorStyleBar;
+        _minSize = { 0, 10 };
+        break;
+    case Spinner:
+        view.style = NSProgressIndicatorStyleSpinning;
+        _minSize = { 20, 20 };
+        break;
+    }
+    [view startAnimation:nil];
+    setNativeHandle(retain(view));
+}
+
+void ProgressIndicatorView::doLayout(Rect frame) {
+    NSProgressIndicator* view = (NSProgressIndicator*)transfer(nativeHandle());
+    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
+}
+
 // MARK: - ColorView
 
 @interface FlatColorView: NSView

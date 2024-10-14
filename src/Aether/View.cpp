@@ -8,7 +8,21 @@
 
 using namespace xui;
 
-void View::layout(Rect frame) { doLayout(frame); }
+void View::layout(Rect frame) {
+    if (auto paddingX =
+            getAttribute<double>(detail::ViewAttributeKey::PaddingX))
+    {
+        frame.pos().x += *paddingX;
+        frame.width() -= 2 * *paddingX;
+    }
+    if (auto paddingY =
+            getAttribute<double>(detail::ViewAttributeKey::PaddingY))
+    {
+        frame.pos().y += *paddingY;
+        frame.height() -= 2 * *paddingY;
+    }
+    doLayout(frame);
+}
 
 void View::setAttribute(detail::ViewAttributeKey key, std::any value) {
     _attribMap.insert_or_assign(key, std::move(value));
@@ -162,6 +176,15 @@ std::unique_ptr<SplitView> xui::VSplit(UniqueVector<View> children) {
 std::unique_ptr<ButtonView> xui::Button(std::string label,
                                         std::function<void()> action) {
     return std::make_unique<ButtonView>(std::move(label), std::move(action));
+}
+
+std::unique_ptr<ProgressIndicatorView> xui::ProgressBar() {
+    return std::make_unique<ProgressIndicatorView>(ProgressIndicatorView::Bar);
+}
+
+std::unique_ptr<ProgressIndicatorView> xui::ProgressSpinner() {
+    return std::make_unique<ProgressIndicatorView>(
+        ProgressIndicatorView::Spinner);
 }
 
 std::unique_ptr<TextFieldView> xui::TextField(std::string defaultText) {

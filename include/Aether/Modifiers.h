@@ -75,6 +75,20 @@ constexpr auto MinHeight(double height) {
     };
 }
 
+constexpr auto PaddingX(std::optional<double> value) {
+    return [=](View& view) {
+        view.setAttribute(detail::ViewAttributeKey::PaddingX,
+                          value ? std::any(*value) : std::any());
+    };
+};
+
+constexpr auto PaddingY(std::optional<double> value) {
+    return [=](View& view) {
+        view.setAttribute(detail::ViewAttributeKey::PaddingY,
+                          value ? std::any(*value) : std::any());
+    };
+};
+
 inline void applyModifier(SplitterStyle style, SplitView& view) {
     view.setSplitterStyle(style);
 }
@@ -115,7 +129,7 @@ inline constexpr detail::SplitViewCollapsableFn SplitViewCollapsable{ true };
 
 /// Modifier used to assign rvalue views to weak references
 template <typename V>
-auto AssignTo(WeakRef<V>& ref) {
+constexpr auto AssignTo(WeakRef<V>& ref) {
     return [&](V& view) { ref = &view; };
 }
 

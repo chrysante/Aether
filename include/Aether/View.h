@@ -259,6 +259,22 @@ private:
 
 std::unique_ptr<LabelView> Label(std::string text);
 
+///
+class ProgressIndicatorView: public View {
+public:
+    enum Style { Bar, Spinner };
+
+    explicit ProgressIndicatorView(Style style);
+
+private:
+    void doLayout(Rect frame) override;
+};
+
+std::unique_ptr<ProgressIndicatorView> ProgressBar();
+
+std::unique_ptr<ProgressIndicatorView> ProgressSpinner();
+
+///
 class ColorView: public View {
 public:
     ColorView(Color const& color);

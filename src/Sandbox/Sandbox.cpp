@@ -74,6 +74,8 @@ struct Sandbox: Application {
             { Button("Print", printText) | XFlex(),
               Button("Cycle Splitstyle", cycleSplitStyle) | XFlex(),
               Button("C", frameSetter) | XFlex(),
+              ProgressBar() | XFlex() | PaddingX(8),
+              ProgressSpinner() | XFlex() | PaddingX(8),
               textField.assign(TextField("Input")) });
     }
 

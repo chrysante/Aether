@@ -21,6 +21,8 @@ namespace detail {
 
 enum class ViewAttributeKey {
     SplitViewCollapsable, // bool
+    PaddingX,             // double
+    PaddingY,             // double
 };
 
 }
