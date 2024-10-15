@@ -3,7 +3,9 @@
 
 #include <any>
 #include <functional>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,24 +15,91 @@
 
 namespace xui {
 
+namespace detail {
+
+static double doubleValOr(double value, double fallback) {
+    return std::isnan(value) ? fallback : value;
+}
+
+inline double valOrNan(std::optional<double> value) {
+    return value.value_or(std::numeric_limits<double>::quiet_NaN());
+}
+
+inline namespace viewProperties {
+
+struct MinSize {
+    explicit MinSize(Size value = { 0, 0 }): value(value) {}
+
+    Size value;
+};
+
+struct MaxSize {
+    explicit MaxSize(
+        Size value = Size(std::numeric_limits<double>::infinity())):
+        value(value) {}
+
+    Size value;
+};
+
+struct PrefSize {
+    PrefSize(Vec2<std::optional<double>> value = {}):
+        value(valOrNan(value.x), valOrNan(value.y)) {}
+
+    Size value;
+};
+
+} // namespace viewProperties
+
+} // namespace detail
+
 /// Base class of all views
 class View: public WeakRefCountableBase<View> {
 public:
     virtual ~View();
 
+    Size minSize() const { return _minSize; }
+    double minWidth() const { return _minSize.width(); }
+    double minHeight() const { return _minSize.height(); }
+    void setMinSize(Size value) { _minSize = value; }
+    void setMinWidth(double value) { _minSize.width() = value; }
+    void setMinHeight(double value) { _minSize.height() = value; }
+
+    Size maxSize() const { return _maxSize; }
+    double maxWidth() const { return _maxSize.width(); }
+    double maxHeight() const { return _maxSize.height(); }
+    void setMaxSize(Size value) { _maxSize = value; }
+    void setMaxWidth(double value) { _maxSize.width() = value; }
+    void setMaxHeight(double value) { _maxSize.height() = value; }
+
+    double preferredWidth() const {
+        return detail::doubleValOr(_prefSize.width(), minWidth());
+    }
+    double preferredHeight() const {
+        return detail::doubleValOr(_prefSize.height(), minHeight());
+    }
+    Size preferredSize() const {
+        return { preferredWidth(), preferredHeight() };
+    }
+
+    void setPreferredWidth(std::optional<double> value) {
+        _prefSize.width() = detail::valOrNan(value);
+    }
+    void setPreferredHeight(std::optional<double> value) {
+        _prefSize.height() = detail::valOrNan(value);
+    }
+    void setPreferredSize(Vec2<std::optional<double>> value) {
+        setPreferredWidth(value.x);
+        setPreferredHeight(value.y);
+    }
+
     void layout(Rect frame);
 
     void* nativeHandle() const { return _nativeHandle; }
 
-    Size minSize() const { return _minSize; }
-    Size maxSize() const { return _maxSize; }
-    Size preferredSize() const { return _preferredSize; }
     Vec2<LayoutMode> layoutMode() const { return _layoutMode; }
-
-    void setMinSize(Size size) { _minSize = size; }
-    void setMaxSize(Size size) { _maxSize = size; }
-    void setPreferredSize(Size size) { _preferredSize = size; }
     void setLayoutMode(Vec2<LayoutMode> mode) { _layoutMode = mode; }
+    void setLayoutModeX(LayoutMode mode) { _layoutMode.x = mode; }
+    void setLayoutModeY(LayoutMode mode) { _layoutMode.y = mode; }
 
     Rect frame() const { return { position(), size() }; }
     Position position() const;
@@ -63,10 +132,12 @@ public:
     }
 
 protected:
-    void setNativeHandle(void* handle);
+    View(Vec2<LayoutMode> layoutMode,
+         detail::MinSize minSize = detail::MinSize(),
+         detail::PrefSize prefSize = detail::PrefSize(),
+         detail::MaxSize maxSize = detail::MaxSize());
 
-    Size _minSize{}, _maxSize{ INFINITY, INFINITY }, _preferredSize{};
-    Vec2<LayoutMode> _layoutMode = LayoutMode::Static;
+    void setNativeHandle(void* handle);
 
 private:
     friend class AggregateView; // To set _parent
@@ -80,6 +151,8 @@ private:
 
     View* _parent = nullptr;
     void* _nativeHandle = nullptr;
+    Vec2<LayoutMode> _layoutMode;
+    Size _minSize, _maxSize, _prefSize;
     std::unordered_map<ViewAttributeKey, std::any> _attribMap;
 };
 
@@ -98,7 +171,11 @@ public:
     Axis axis() const { return _axis; }
 
 protected:
-    AggregateView(Axis axis, std::vector<std::unique_ptr<View>> children);
+    AggregateView(Axis axis, std::vector<std::unique_ptr<View>> children,
+                  Vec2<LayoutMode> layoutMode,
+                  detail::MinSize minSize = detail::MinSize(),
+                  detail::PrefSize prefSize = detail::PrefSize(),
+                  detail::MaxSize maxSize = detail::MaxSize());
 
 private:
     Axis _axis;

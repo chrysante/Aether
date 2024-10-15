@@ -22,7 +22,7 @@ struct internal::WindowImpl {
         window._content->layout({ { 0, 0 }, size });
     }
 
-    static void onResize(Window& window, Rect newFrame) {
+    static void onResize(Window& window, Rect /* newFrame */) {
         layoutContent(window);
     }
 };

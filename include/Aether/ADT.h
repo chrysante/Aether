@@ -38,7 +38,7 @@ template <typename T>
 struct VecData<T, 2> {
     VecData() = default;
     constexpr VecData(T x, T y): data{ x, y } {}
-    constexpr VecData(T value): data{ value, value } {}
+    explicit constexpr VecData(T value): data{ value, value } {}
 
     union {
         T data[2]{};
@@ -52,7 +52,7 @@ template <typename T>
 struct VecData<T, 3> {
     VecData() = default;
     constexpr VecData(T x, T y, T z): data{ x, y, z } {}
-    constexpr VecData(T value): data{ value, value, value } {}
+    explicit constexpr VecData(T value): data{ value, value, value } {}
 
     union {
         T data[3]{};
@@ -66,7 +66,7 @@ template <typename T>
 struct VecData<T, 4> {
     VecData() = default;
     constexpr VecData(T x, T y, T z, T w): data{ x, y, z, w } {}
-    constexpr VecData(T value): data{ value, value, value, value } {}
+    explicit constexpr VecData(T value): data{ value, value, value, value } {}
 
     union {
         T data[4]{};
@@ -89,6 +89,13 @@ private:
 
 public:
     using Base::data;
+
+    template <typename U>
+    Vec(Vec<U, N> const& other) {
+        for (size_t i = 0; i < N; ++i) {
+            (*this)[i] = other[i];
+        }
+    }
 
     Vec() = default;
 

@@ -86,9 +86,8 @@ struct Sandbox: Application {
         return VScrollView(
             { Button("Print", printText) | XFlex(),
               Button("Cycle Splitstyle", cycleSplitStyle) | XFlex(),
-              Button("C", frameSetter) | XFlex(),
-              ProgressBar() | XFlex() | PaddingX(8),
-              ProgressSpinner() | XFlex() | PaddingX(8),
+              Button("C", frameSetter) | XFlex(), ProgressBar() | PaddingX(8),
+              ProgressSpinner() | MinSize({ 38, 38 }) | PaddingX(8),
               TextField("Input") | AssignTo(textField),
               std::make_unique<SwitchView>(), LabelledSwitch("Some Switch") });
     }

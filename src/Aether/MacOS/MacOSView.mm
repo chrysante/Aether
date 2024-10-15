@@ -15,6 +15,7 @@
 #include "Aether/ViewUtil.h"
 
 using namespace xui;
+using namespace detail::viewProperties;
 
 // MARK: - View
 
@@ -52,8 +53,8 @@ static V* getView(NSView* view) {
 // MARK: - StackView
 
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children)) {
-    _layoutMode = LayoutMode::Flex;
+    AggregateView(axis, std::move(children),
+                  { LayoutMode::Flex, LayoutMode::Flex }) {
     NSView* view = [[NSView alloc] init];
     for (auto& child: _children) {
         NSView* childView = transfer(child->nativeHandle());
@@ -70,8 +71,8 @@ void StackView::setFrame(Rect frame) {
 // MARK: - ScrollView
 
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children)) {
-    _layoutMode = LayoutMode::Flex;
+    AggregateView(axis, std::move(children),
+                  { LayoutMode::Flex, LayoutMode::Flex }) {
     NSView* content = [[NSView alloc] init];
     NSScrollView* VScrollView = [[NSScrollView alloc] init];
     for (auto& child: _children) {
@@ -149,7 +150,8 @@ static SplitViewDelegate* const gSplitViewDelegate =
     [[SplitViewDelegate alloc] init];
 
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children)) {
+    AggregateView(axis, std::move(children),
+                  { LayoutMode::Flex, LayoutMode::Flex }) {
     AetherSplitView* view = [[AetherSplitView alloc] init];
     view.This = this;
     view.vertical = axis == Axis::X;
@@ -160,7 +162,6 @@ SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     setSplitterStyle(_splitterStyle);
     static void const* const DelegateKey = &DelegateKey;
     [view setDelegate:gSplitViewDelegate];
-    _layoutMode = LayoutMode::Flex;
 }
 
 static NSSplitViewDividerStyle toNS(SplitterStyle style) {
@@ -352,7 +353,7 @@ static NSTabViewBorderType toNS(TabViewBorder border) {
 }
 
 TabView::TabView(std::vector<TabViewElement> elems):
-    elements(std::move(elems)) {
+    View({ LayoutMode::Flex, LayoutMode::Flex }), elements(std::move(elems)) {
     NSTabView* view = [[NSTabView alloc] init];
     view.tabPosition = toNS(_tabPosition);
     view.tabViewBorderType = toNS(_border);
@@ -364,7 +365,6 @@ TabView::TabView(std::vector<TabViewElement> elems):
         item.label = toNSString(title);
         [view addTabViewItem:item];
     }
-    _layoutMode = LayoutMode::Flex;
 }
 
 void TabView::setTabPosition(TabPosition position) {
@@ -484,7 +484,10 @@ NSString* makeButtonTitle(std::string_view title, ButtonType type,
 
 ButtonView::ButtonView(std::string label, std::function<void()> action,
                        ButtonType type):
-    _type(type), _label(std::move(label)), _action(std::move(action)) {
+    View({ LayoutMode::Static, LayoutMode::Static }, MinSize({ 80, 34 })),
+    _type(type),
+    _label(std::move(label)),
+    _action(std::move(action)) {
     NSButton* button = [[NSButton alloc] init];
     button.buttonType = toNS(type);
     setNativeHandle(retain(button));
@@ -494,8 +497,7 @@ ButtonView::ButtonView(std::string label, std::function<void()> action,
             _action();
         }
     }];
-    _minSize = { 80, 34 };
-    _preferredSize = fromNSSize(button.intrinsicContentSize);
+    setPreferredSize(fromNSSize(button.intrinsicContentSize));
 }
 
 void ButtonView::setBezelStyle(BezelStyle style) {
@@ -518,10 +520,10 @@ void ButtonView::doLayout(Rect rect) {
 
 // MARK: - Switch
 
-SwitchView::SwitchView() {
+SwitchView::SwitchView(): View({ LayoutMode::Static, LayoutMode::Static }) {
     NSSwitch* view = [[NSSwitch alloc] init];
     setNativeHandle(retain(view));
-    _minSize = _preferredSize = fromNSSize(view.intrinsicContentSize);
+    setMinSize(fromNSSize(view.intrinsicContentSize));
 }
 
 void SwitchView::doLayout(Rect frame) {
@@ -531,15 +533,14 @@ void SwitchView::doLayout(Rect frame) {
 
 // MARK: - TextField
 
-TextFieldView::TextFieldView(std::string defaultText) {
+TextFieldView::TextFieldView(std::string defaultText):
+    View({ LayoutMode::Flex, LayoutMode::Static }, MinSize({ 80, 32 })) {
     NSTextField* view =
         [NSTextField textFieldWithString:toNSString(defaultText)];
     view.bezelStyle = NSTextFieldRoundedBezel;
     setAttribute<ViewAttributeKey::PaddingX>(6);
     setAttribute<ViewAttributeKey::PaddingY>(6);
     setNativeHandle(retain(view));
-    _minSize = _preferredSize = { 80, 34 };
-    _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
 }
 
 void TextFieldView::setText(std::string /* text */) {
@@ -559,11 +560,10 @@ void TextFieldView::doLayout(Rect frame) {
 
 // MARK: - LabelView
 
-LabelView::LabelView(std::string text) {
+LabelView::LabelView(std::string text):
+    View({ LayoutMode::Flex, LayoutMode::Static }, MinSize({ 80, 22 })) {
     NSTextField* field = [NSTextField labelWithString:toNSString(text)];
     setNativeHandle(retain(field));
-    _minSize = _preferredSize = { 80, 22 };
-    _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
 }
 
 void LabelView::setText(std::string text) {
@@ -578,16 +578,18 @@ void LabelView::doLayout(Rect frame) {
 
 // MARK: - ProgressIndicatorView
 
-ProgressIndicatorView::ProgressIndicatorView(Style style) {
+ProgressIndicatorView::ProgressIndicatorView(Style style):
+    View({ style == Bar ? LayoutMode::Flex : LayoutMode::Static,
+           LayoutMode::Static }) {
     NSProgressIndicator* view = [[NSProgressIndicator alloc] init];
     switch (style) {
     case Bar:
         view.style = NSProgressIndicatorStyleBar;
-        _minSize = { 0, 10 };
+        setMinSize({ 0, 10 });
         break;
     case Spinner:
         view.style = NSProgressIndicatorStyleSpinning;
-        _minSize = { 20, 20 };
+        setMinSize({ 20, 20 });
         break;
     }
     [view startAnimation:nil];
@@ -630,11 +632,11 @@ void ProgressIndicatorView::doLayout(Rect frame) {
 }
 @end
 
-ColorView::ColorView(Color const& color) {
+ColorView::ColorView(Color const& color):
+    View({ LayoutMode::Flex, LayoutMode::Flex }) {
     FlatColorView* view =
         [[FlatColorView alloc] initWithColor:toNSColor(color)];
     setNativeHandle(retain(view));
-    _layoutMode = LayoutMode::Flex;
 }
 
 void ColorView::doLayout(Rect frame) {

@@ -28,7 +28,9 @@ void applyModifier(M&& mod, V& view) {
 }
 
 constexpr auto Flex() {
-    return [](View& view) { view.setLayoutMode(LayoutMode::Flex); };
+    return [](View& view) {
+        view.setLayoutMode({ LayoutMode::Flex, LayoutMode::Flex });
+    };
 }
 
 constexpr auto XFlex() {
@@ -44,19 +46,17 @@ constexpr auto YFlex() {
 }
 
 constexpr auto PreferredSize(Size size) {
-    return [=](View& view) { view.setPreferredSize(size); };
+    return [=](View& view) {
+        view.setPreferredSize({ size.width(), size.height() });
+    };
 }
 
 constexpr auto PreferredWidth(double width) {
-    return [=](View& view) {
-        view.setPreferredSize({ width, view.preferredSize().height() });
-    };
+    return [=](View& view) { view.setPreferredWidth(width); };
 }
 
 constexpr auto PreferredHeight(double height) {
-    return [=](View& view) {
-        view.setPreferredSize({ view.preferredSize().width(), height });
-    };
+    return [=](View& view) { view.setPreferredHeight(height); };
 }
 
 constexpr auto MinSize(Size size) {

@@ -8,6 +8,15 @@
 
 using namespace xui;
 
+using namespace detail::viewProperties;
+
+View::View(Vec2<LayoutMode> layoutMode, MinSize minSize, PrefSize prefSize,
+           MaxSize maxSize):
+    _layoutMode(layoutMode),
+    _minSize(minSize.value),
+    _maxSize(maxSize.value),
+    _prefSize(prefSize.value) {}
+
 void View::layout(Rect frame) {
     if (auto padding = getAttribute<ViewAttributeKey::PaddingX>()) {
         frame.pos().x += *padding;
@@ -32,8 +41,13 @@ std::any View::getAttributeImpl(ViewAttributeKey key) const {
 }
 
 AggregateView::AggregateView(Axis axis,
-                             std::vector<std::unique_ptr<View>> children):
-    _axis(axis), _children(std::move(children)) {
+                             std::vector<std::unique_ptr<View>> children,
+                             Vec2<LayoutMode> layoutMode,
+                             detail::MinSize minSize, detail::PrefSize prefSize,
+                             detail::MaxSize maxSize):
+    View(layoutMode, minSize, prefSize, maxSize),
+    _axis(axis),
+    _children(std::move(children)) {
     for (auto& child: _children) {
         child->_parent = this;
     }
@@ -41,10 +55,8 @@ AggregateView::AggregateView(Axis axis,
 
 static constexpr Size SpacerMinSize = { 5, 5 };
 
-SpacerView::SpacerView() {
-    _minSize = SpacerMinSize;
-    _layoutMode = LayoutMode::Flex;
-}
+SpacerView::SpacerView():
+    View({ LayoutMode::Flex, LayoutMode::Flex }, MinSize(SpacerMinSize)) {}
 
 std::unique_ptr<SpacerView> xui::Spacer() {
     return std::make_unique<SpacerView>();
@@ -193,7 +205,7 @@ void StackView::doLayout(Rect frame) {
         }
         else {
             layoutChildrenXY<A>(childrenView, frame,
-                                { .fillAvailSpace = true });
+                                { .fillAvailSpace = { true, true } });
         }
     });
 }
