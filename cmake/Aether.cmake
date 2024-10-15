@@ -3,6 +3,7 @@ set(SOURCE_FILES
     src/Aether/Application.cpp
     src/Aether/Main.cpp
     src/Aether/Modifiers.cpp
+    src/Aether/Toolbar.cpp
     src/Aether/View.cpp
     src/Aether/ViewUtil.h
     src/Aether/Window.cpp
@@ -11,6 +12,7 @@ set(HEADER_FILES
     include/Aether/ADT.h
     include/Aether/Application.h
     include/Aether/Modifiers.h
+    include/Aether/Toolbar.h
     include/Aether/View.h
     include/Aether/ViewProperties.h
     include/Aether/Window.h
@@ -21,6 +23,7 @@ add_library(Aether SHARED)
 if(APPLE)
     list(APPEND SOURCE_FILES
         src/Aether/MacOS/MacOSMain.mm
+        src/Aether/MacOS/MacOSToolbar.mm
         src/Aether/MacOS/MacOSUtil.h
         src/Aether/MacOS/MacOSUtil.mm
         src/Aether/MacOS/MacOSView.mm

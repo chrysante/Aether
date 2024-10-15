@@ -8,6 +8,7 @@
 namespace xui {
 
 class View;
+class ToolbarView;
 
 namespace internal {
 
@@ -39,6 +40,9 @@ public:
     /// view
     void setContentView(std::unique_ptr<View> view);
 
+    ///
+    void setToolbar(std::unique_ptr<ToolbarView> toolbar);
+
     /// \Returns the content view of the window
     View* contentView() { return _content.get(); }
 
@@ -61,6 +65,7 @@ private:
     std::string _title;
     WindowProperties _props;
     std::unique_ptr<View> _content;
+    std::unique_ptr<ToolbarView> _toolbar;
 };
 
 std::unique_ptr<Window> window(std::string title, Rect frame,

@@ -72,6 +72,16 @@ inline NSColor* toNSColor(std::optional<Color> const& color) {
 
 Color fromNSColor(NSColor* nsColor);
 
+void setAssocPointer(id object, void const* key, void* pointer);
+
+void* getAssocPointer(id object, void const* key);
+
+template <typename T>
+    requires std::is_pointer_v<T>
+T getAssocPointer(id object, void const* key) {
+    return static_cast<T>(getAssocPointer(object, key));
+}
+
 } // namespace xui
 
 #endif // AETHER_MACOS_MACOSUTIL_H

@@ -1,6 +1,7 @@
 #include "Aether/MacOS/MacOSUtil.h"
 
 #import <Appkit/Appkit.h>
+#import <objc/runtime.h>
 
 using namespace xui;
 
@@ -51,4 +52,13 @@ Color xui::fromNSColor(NSColor* nsColor) {
     }
     return Color(rgbColor.redComponent, rgbColor.greenComponent,
                  rgbColor.blueComponent, rgbColor.alphaComponent);
+}
+
+void xui::setAssocPointer(id object, void const* key, void* pointer) {
+    objc_setAssociatedObject(object, key, (__bridge id)pointer,
+                             OBJC_ASSOCIATION_ASSIGN);
+}
+
+void* xui::getAssocPointer(id object, void const* key) {
+    return (__bridge void*)objc_getAssociatedObject(object, key);
 }

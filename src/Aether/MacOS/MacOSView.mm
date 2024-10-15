@@ -33,17 +33,15 @@ xui::Size View::size() const {
     return fromNSSize(view.frame.size);
 }
 
-static void* NativeHandleKey = &NativeHandleKey;
+static void* ViewHandleKey = &ViewHandleKey;
 
 void View::setNativeHandle(void* handle) {
     _nativeHandle = handle;
-    objc_setAssociatedObject(transfer(handle), NativeHandleKey,
-                             (__bridge id)this, OBJC_ASSOCIATION_ASSIGN);
+    setAssocPointer(transfer(handle), ViewHandleKey, this);
 }
 
 static View* getView(NSView* view) {
-    return (View*)(__bridge void*)objc_getAssociatedObject(view,
-                                                           NativeHandleKey);
+    return getAssocPointer<View*>(view, ViewHandleKey);
 }
 
 template <typename V>
@@ -619,7 +617,7 @@ void ProgressIndicatorView::doLayout(Rect frame) {
     [[NSColor blackColor] setFill];
     NSRectFill(dirtyRect);
     [self.color setFill];
-    NSRectFill(NSInsetRect(self.frame, 2, 2));
+    NSRectFill(NSInsetRect(dirtyRect, 2, 2));
     NSString* text = [NSString stringWithFormat:@"Width: %f\nHeight: %f",
                                                 self.frame.size.width,
                                                 self.frame.size.height];
@@ -627,7 +625,7 @@ void ProgressIndicatorView::doLayout(Rect frame) {
         NSFontAttributeName : [NSFont systemFontOfSize:12],
         NSForegroundColorAttributeName : [NSColor blackColor]
     };
-    NSRect textRect = NSInsetRect(self.frame, 15, 15);
+    NSRect textRect = NSInsetRect(dirtyRect, 15, 15);
     [text drawInRect:textRect withAttributes:attributes];
 }
 @end

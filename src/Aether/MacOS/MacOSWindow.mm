@@ -4,6 +4,7 @@
 #import <objc/runtime.h>
 
 #include "Aether/MacOS/MacOSUtil.h"
+#include "Aether/Toolbar.h"
 #include "Aether/View.h"
 
 using namespace xui;
@@ -13,14 +14,15 @@ struct internal::WindowImpl {
         if (!window._content) {
             return;
         }
-        NSWindow* nsWindow = transfer(window._handle);
-        NSView* cview = transfer(window._content->nativeHandle());
-        [nsWindow.contentView addSubview:cview];
-        auto size = fromAppkitCoords(nsWindow.contentView.frame).size();
+        NSWindow* native = transfer(window._handle);
+        NSRect contentRect = [NSWindow
+            contentRectForFrameRect:native.frame
+                          styleMask:native.styleMask];
+        auto size = fromAppkitCoords(contentRect).size();
         window._content->layout({ { 0, 0 }, size });
     }
 
-    static void onResize(Window& window, Rect /* newFrame */) {
+    static void onResize(Window& window, Rect newFrame) {
         layoutContent(window);
     }
 };
@@ -119,14 +121,26 @@ void Window::setFrame(Rect frame, bool animate) {
 }
 
 void Window::setTitle(std::string title) {
-    NSWindow* window = transfer(_handle);
+    NSWindow* native = transfer(_handle);
     _title = std::move(title);
-    window.title = toNSString(_title);
+    native.title = toNSString(_title);
 }
 
 void Window::setContentView(std::unique_ptr<View> view) {
     _content = std::move(view);
-    Impl::layoutContent(*this);
+    NSWindow* native = transfer(_handle);
+    if (_content) {
+        [native.contentView
+            setSubviews:@[ transfer(_content->nativeHandle()) ]];
+        Impl::layoutContent(*this);
+    }
+}
+
+void Window::setToolbar(std::unique_ptr<ToolbarView> toolbar) {
+    _toolbar = std::move(toolbar);
+    NSWindow* window = transfer(_handle);
+    window.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
+    window.toolbar = transfer(_toolbar->nativeHandle());
 }
 
 xui::Rect Window::frame() const {

@@ -2,6 +2,7 @@
 
 #include <Aether/Application.h>
 #include <Aether/Modifiers.h>
+#include <Aether/Toolbar.h>
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
@@ -18,17 +19,13 @@ std::unique_ptr<View> LabelledSwitch(std::string label) {
 struct Sandbox: Application {
     Sandbox() {
         window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
-        // auto content = HStack({
-        //     DetailPanel(),
-        //     Sidebar(),
-        // });
+        window->setToolbar(Toolbar({
+            Button("Hello 1", [] { std::cout << "Hello 1\n"; }) |
+                BezelStyle::Toolbar,
+            Button("Hello 2", [] { std::cout << "Hello 2\n"; }) |
+                BezelStyle::Toolbar,
+        }));
 
-        window->setContentView(
-            ZStack({ std::make_unique<ColorView>(Color::Red()),
-                     Button("Hello") | BezelStyle::Badge | AlignX::Center |
-                         AlignY::Center }));
-
-        return;
         window->setContentView(
             HSplit({
                 VSplit({
