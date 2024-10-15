@@ -23,11 +23,10 @@ struct Sandbox: Application {
         //     Sidebar(),
         // });
 
-        window->setContentView(Tab({
-                                   { "Sidebar", Sidebar() },
-                                   { "Details", DetailPanel() },
-                               }) |
-                               TabViewBorder::Bezel | TabPosition::Left);
+        window->setContentView(
+            ZStack({ std::make_unique<ColorView>(Color::Red()),
+                     Button("Hello") | BezelStyle::Badge | AlignX::Center |
+                         AlignY::Center }));
 
         return;
         window->setContentView(

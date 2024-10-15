@@ -149,6 +149,15 @@ std::unique_ptr<StackView> VStack(std::unique_ptr<View> (&&children)[N]) {
     return VStack(toMoveOnlyVector(std::move(children)));
 }
 
+/// Views stacked on top of each other
+std::unique_ptr<StackView> ZStack(UniqueVector<View> children);
+
+/// \overload
+template <size_t N>
+std::unique_ptr<StackView> ZStack(std::unique_ptr<View> (&&children)[N]) {
+    return ZStack(toMoveOnlyVector(std::move(children)));
+}
+
 ///
 class ScrollView: public AggregateView {
 public:

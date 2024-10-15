@@ -616,12 +616,10 @@ void ProgressIndicatorView::doLayout(Rect frame) {
 }
 - (void)drawRect:(NSRect)dirtyRect {
     [super drawRect:dirtyRect];
-
     [[NSColor blackColor] setFill];
     NSRectFill(dirtyRect);
     [self.color setFill];
-    NSRectFill(NSInsetRect(dirtyRect, 2, 2));
-
+    NSRectFill(NSInsetRect(self.frame, 2, 2));
     NSString* text = [NSString stringWithFormat:@"Width: %f\nHeight: %f",
                                                 self.frame.size.width,
                                                 self.frame.size.height];
@@ -629,7 +627,7 @@ void ProgressIndicatorView::doLayout(Rect frame) {
         NSFontAttributeName : [NSFont systemFontOfSize:12],
         NSForegroundColorAttributeName : [NSColor blackColor]
     };
-    NSRect textRect = NSInsetRect(dirtyRect, 15, 15);
+    NSRect textRect = NSInsetRect(self.frame, 15, 15);
     [text drawInRect:textRect withAttributes:attributes];
 }
 @end
@@ -638,6 +636,7 @@ ColorView::ColorView(Color const& color) {
     FlatColorView* view =
         [[FlatColorView alloc] initWithColor:toNSColor(color)];
     setNativeHandle(retain(view));
+    _layoutMode = LayoutMode::Flex;
 }
 
 void ColorView::doLayout(Rect frame) {

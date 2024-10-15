@@ -83,29 +83,49 @@ struct ChildrenLayoutOptions {
 
 } // namespace
 
+template <typename T>
+static T orDefault(std::optional<T> const& o) {
+    return o.value_or(T{});
+}
+
+static double computeAlignedPosition(double childSize, double parentSize,
+                                     auto align) {
+    double sizeDiff = parentSize - childSize;
+    using enum AlignX;
+    switch ((AlignX)align) {
+    case Left:
+        return 0.0;
+    case Center:
+        return sizeDiff / 2;
+    case Right:
+        return sizeDiff;
+    }
+}
+
 template <Axis A>
 static Position computeAlignedPosition(View const& child, Size childSize,
                                        Size parentSize, double cursor) {
-    using AlignType = std::conditional_t<A == Axis::X, AlignY, AlignX>;
+    static_assert(A != Axis::Z);
     constexpr ViewAttributeKey Key = A == Axis::X ? ViewAttributeKey::AlignY :
                                                     ViewAttributeKey::AlignX;
-    auto align = child.getAttribute<Key>().value_or(AlignType{});
-    Vec2<double> sizeDiff = parentSize - childSize;
-    double otherCoord = [&] {
-        switch ((AlignX)align) {
-            using enum AlignX;
-        case Left:
-            return 0.0;
-        case Center:
-            return sizeDiff[flip(A)] / 2;
-        case Right:
-            return sizeDiff[flip(A)];
-        }
-    }();
+    auto B = flip(A);
     Position pos{};
     pos[A] = cursor;
-    pos[flip(A)] = otherCoord;
+    pos[B] = computeAlignedPosition(childSize[B], parentSize[B],
+                                    orDefault(child.getAttribute<Key>()));
     return pos;
+}
+
+static Position computeAlignedPositionZ(View const& child, Size childSize,
+                                        Size parentSize) {
+    return {
+        computeAlignedPosition(
+            childSize[0], parentSize[0],
+            orDefault(child.getAttribute<ViewAttributeKey::AlignX>())),
+        computeAlignedPosition(
+            childSize[1], parentSize[1],
+            orDefault(child.getAttribute<ViewAttributeKey::AlignY>())),
+    };
 }
 
 template <Axis A>
@@ -142,13 +162,34 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
     return total;
 }
 
+static Rect layoutChildrenZ(auto&& children, Rect frame) {
+    Rect total{};
+    for (View* child: children) {
+        Size prefSize = child->preferredSize();
+        auto layoutMode = child->layoutMode();
+        for (auto [index, mode]: layoutMode | ranges::views::enumerate) {
+            if (mode == LayoutMode::Static) {
+                continue;
+            }
+            prefSize[index] = frame.size()[index];
+        }
+        Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
+        Position childPosition =
+            computeAlignedPositionZ(*child, childSize, frame.size());
+        Rect childRect{ childPosition, childSize };
+        child->layout(childRect);
+        total = merge(total, childRect);
+    }
+    return total;
+}
+
 void StackView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
         _children | ranges::views::transform([](auto& c) { return c.get(); });
     dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
-            assert(false);
+            layoutChildrenZ(childrenView, frame);
         }
         else {
             layoutChildrenXY<A>(childrenView, frame,
@@ -163,6 +204,10 @@ std::unique_ptr<StackView> xui::HStack(UniqueVector<View> children) {
 
 std::unique_ptr<StackView> xui::VStack(UniqueVector<View> children) {
     return std::make_unique<StackView>(Axis::Y, std::move(children));
+}
+
+std::unique_ptr<StackView> xui::ZStack(UniqueVector<View> children) {
+    return std::make_unique<StackView>(Axis::Z, std::move(children));
 }
 
 void ScrollView::doLayout(Rect frame) {
