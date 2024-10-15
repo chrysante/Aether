@@ -167,18 +167,12 @@ private:
 std::unique_ptr<SpacerView> Spacer();
 
 class AggregateView: public View {
-public:
-    Axis axis() const { return _axis; }
-
 protected:
-    AggregateView(Axis axis, std::vector<std::unique_ptr<View>> children,
+    AggregateView(std::vector<std::unique_ptr<View>> children,
                   Vec2<LayoutMode> layoutMode,
                   detail::MinSize minSize = detail::MinSize(),
                   detail::PrefSize prefSize = detail::PrefSize(),
                   detail::MaxSize maxSize = detail::MaxSize());
-
-private:
-    Axis _axis;
 
 protected:
     std::vector<std::unique_ptr<View>> _children;
@@ -192,6 +186,8 @@ public:
 private:
     void doLayout(Rect frame) override;
     void setFrame(Rect frame);
+
+    Axis axis;
 };
 
 /// Horizonal stack view (Axis = X)
@@ -244,6 +240,8 @@ private:
     void doLayout(Rect frame) override;
     void setFrame(Rect frame);
     void setDocumentSize(Size size);
+
+    Axis axis;
 };
 
 std::unique_ptr<ScrollView> VScrollView(UniqueVector<View> children);
@@ -299,6 +297,7 @@ private:
     double sizeWithoutDividers() const;
     bool isChildCollapsed(size_t childIndex) const;
 
+    Axis axis;
     SplitterStyle _splitterStyle = SplitterStyle::Default;
     std::optional<Color> _splitterColor;
     std::optional<double> _splitterThickness;

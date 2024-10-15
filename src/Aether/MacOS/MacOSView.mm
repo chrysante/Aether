@@ -53,8 +53,8 @@ static V* getView(NSView* view) {
 // MARK: - StackView
 
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children),
-                  { LayoutMode::Flex, LayoutMode::Flex }) {
+    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
+    axis(axis) {
     NSView* view = [[NSView alloc] init];
     for (auto& child: _children) {
         NSView* childView = transfer(child->nativeHandle());
@@ -71,8 +71,8 @@ void StackView::setFrame(Rect frame) {
 // MARK: - ScrollView
 
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children),
-                  { LayoutMode::Flex, LayoutMode::Flex }) {
+    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
+    axis(axis) {
     NSView* content = [[NSView alloc] init];
     NSScrollView* VScrollView = [[NSScrollView alloc] init];
     for (auto& child: _children) {
@@ -150,8 +150,8 @@ static SplitViewDelegate* const gSplitViewDelegate =
     [[SplitViewDelegate alloc] init];
 
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(axis, std::move(children),
-                  { LayoutMode::Flex, LayoutMode::Flex }) {
+    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
+    axis(axis) {
     AetherSplitView* view = [[AetherSplitView alloc] init];
     view.This = this;
     view.vertical = axis == Axis::X;
@@ -196,7 +196,7 @@ void SplitView::setSplitterThickness(std::optional<double> thickness) {
 
 double SplitView::sizeWithoutDividers() const {
     NSSplitView* view = transfer(nativeHandle());
-    double totalSize = fromNSSize(view.frame.size)[axis()];
+    double totalSize = fromNSSize(view.frame.size)[axis];
     return totalSize - view.dividerThickness * (_children.size() - 1);
 }
 
@@ -242,7 +242,7 @@ void SplitView::didResizeSubviews() {
     double fracSum = 0;
     for (size_t i = 0; i < _children.size(); ++i) {
         auto* child = _children[i].get();
-        double size = child->size()[axis()];
+        double size = child->size()[axis];
         double frac = size / totalSize;
         childFractions[i] = frac;
         if (!isChildCollapsed(i)) {
@@ -264,21 +264,20 @@ double SplitView::constrainSplitPosition(double proposedPosition,
     Position leftPosition = left->position();
     leftPosition.y += left->size().height();
     leftPosition.y = size().height() - leftPosition.y;
-    double currentPosition = leftPosition[axis()] + left->size()[axis()];
-    if (left->size()[axis()] <= left->minSize()[axis()] &&
-        right->size()[axis()] <= right->minSize()[axis()])
+    double currentPosition = leftPosition[axis] + left->size()[axis];
+    if (left->size()[axis] <= left->minSize()[axis] &&
+        right->size()[axis] <= right->minSize()[axis])
     {
         return currentPosition;
     }
     double offset = proposedPosition - currentPosition;
-    double leftNewSize = left->size()[axis()] + offset;
-    if (left->minSize()[axis()] > leftNewSize) {
-        return leftPosition[axis()] + left->minSize()[axis()];
+    double leftNewSize = left->size()[axis] + offset;
+    if (left->minSize()[axis] > leftNewSize) {
+        return leftPosition[axis] + left->minSize()[axis];
     }
-    double rightNewSize = right->size()[axis()] - offset;
-    if (right->minSize()[axis()] > rightNewSize) {
-        return currentPosition + right->size()[axis()] -
-               right->minSize()[axis()];
+    double rightNewSize = right->size()[axis] - offset;
+    if (right->minSize()[axis] > rightNewSize) {
+        return currentPosition + right->size()[axis] - right->minSize()[axis];
     }
     return proposedPosition;
 }
@@ -309,9 +308,9 @@ void SplitView::doLayout(Rect frame) {
         double frac = childFractions[i];
         assert(frac >= 0.0);
         double childSize = totalSize * frac;
-        Rect childFrame = { Position(axis(), offset), frame.size() };
-        childFrame.size()[axis()] = childSize;
-        if (axis() == Axis::Y) {
+        Rect childFrame = { Position(axis, offset), frame.size() };
+        childFrame.size()[axis] = childSize;
+        if (axis == Axis::Y) {
             // We need to do this coordinate transform dance because here AppKit
             // uses top-left -> bottom-right coordinates, unlike everywhere else
             childFrame.pos().y =

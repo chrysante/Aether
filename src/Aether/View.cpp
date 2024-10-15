@@ -40,13 +40,11 @@ std::any View::getAttributeImpl(ViewAttributeKey key) const {
     return itr != _attribMap.end() ? itr->second : std::any();
 }
 
-AggregateView::AggregateView(Axis axis,
-                             std::vector<std::unique_ptr<View>> children,
+AggregateView::AggregateView(std::vector<std::unique_ptr<View>> children,
                              Vec2<LayoutMode> layoutMode,
                              detail::MinSize minSize, detail::PrefSize prefSize,
                              detail::MaxSize maxSize):
     View(layoutMode, minSize, prefSize, maxSize),
-    _axis(axis),
     _children(std::move(children)) {
     for (auto& child: _children) {
         child->_parent = this;
@@ -199,7 +197,7 @@ void StackView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
         _children | ranges::views::transform([](auto& c) { return c.get(); });
-    dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+    dispatchAxis(axis, [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
             layoutChildrenZ(childrenView, frame);
         }
@@ -226,7 +224,7 @@ void ScrollView::doLayout(Rect frame) {
     setFrame(frame);
     auto childrenView =
         _children | ranges::views::transform([](auto& c) { return c.get(); });
-    dispatchAxis(axis(), [&]<Axis A>(std::integral_constant<Axis, A>) {
+    dispatchAxis(axis, [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
             assert(false);
         }
