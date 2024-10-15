@@ -2,6 +2,7 @@
 
 #include "Aether/View.h"
 
+#include <cwchar>
 #include <functional>
 #include <optional>
 #include <span>
@@ -161,6 +162,7 @@ SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     setSplitterStyle(_splitterStyle);
     static void const* const DelegateKey = &DelegateKey;
     [view setDelegate:gSplitViewDelegate];
+    _layoutMode = LayoutMode::Flex;
 }
 
 static NSSplitViewDividerStyle toNS(SplitterStyle style) {
@@ -364,6 +366,7 @@ TabView::TabView(std::vector<TabViewElement> elems):
         item.label = toNSString(title);
         [view addTabViewItem:item];
     }
+    _layoutMode = LayoutMode::Flex;
 }
 
 void TabView::setTabPosition(TabPosition position) {
@@ -421,12 +424,73 @@ static xui::Size computeSize(NSString* text) {
     return { textSize.width, textSize.height };
 }
 
-ButtonView::ButtonView(std::string label, std::function<void()> action):
-    _label(std::move(label)), _action(std::move(action)) {
+static NSButtonType toNS(ButtonType type) {
+    using enum ButtonType;
+    switch (type) {
+    case Default:
+        return NSButtonTypeMomentaryLight;
+    case Toggle:
+        return NSButtonTypePushOnPushOff;
+    case Switch:
+        return NSButtonTypeSwitch;
+    case Radio:
+        return NSButtonTypeRadio;
+    }
+}
+
+static NSBezelStyle toNS(BezelStyle style) {
+    using enum BezelStyle;
+    switch (style) {
+    case Push:
+        return NSBezelStylePush;
+    case PushFlexHeight:
+        return NSBezelStyleFlexiblePush;
+    case Circular:
+        return NSBezelStyleCircular;
+    case Help:
+        return NSBezelStyleHelpButton;
+    case SmallSquare:
+        return NSBezelStyleSmallSquare;
+    case Toolbar:
+        return NSBezelStyleToolbar;
+    case Badge:
+        return NSBezelStyleBadge;
+    }
+}
+
+static std::string_view trimToFirstCharacter(std::string_view s) {
+    if (s.empty()) {
+        return s;
+    }
+    size_t charLength = std::mbrlen(s.data(), s.size(), nullptr);
+    return { s.data(), charLength };
+}
+
+NSString* makeButtonTitle(std::string_view title, ButtonType type,
+                          BezelStyle style) {
+    using enum BezelStyle;
+    if (type == ButtonType::Default || type == ButtonType::Toggle) {
+        switch (style) {
+        case Circular:
+            title = trimToFirstCharacter(title);
+            break;
+        case Help:
+            title = {};
+            break;
+        default:
+            break;
+        }
+    }
+    return toNSString(title);
+}
+
+ButtonView::ButtonView(std::string label, std::function<void()> action,
+                       ButtonType type):
+    _type(type), _label(std::move(label)), _action(std::move(action)) {
     NSButton* button = [[NSButton alloc] init];
+    button.buttonType = toNS(type);
     setNativeHandle(retain(button));
-    [button setTitle:toNSString(_label)];
-    button.enabled = true;
+    setBezelStyle(_bezelStyle);
     [button setActionBlock:^{
         if (_action) {
             _action();
@@ -434,6 +498,19 @@ ButtonView::ButtonView(std::string label, std::function<void()> action):
     }];
     _minSize = { 80, 34 };
     _preferredSize = fromNSSize(button.intrinsicContentSize);
+}
+
+void ButtonView::setBezelStyle(BezelStyle style) {
+    _bezelStyle = style;
+    NSButton* button = transfer(nativeHandle());
+    button.bezelStyle = toNS(_bezelStyle);
+    setLabel(std::move(_label));
+}
+
+void ButtonView::setLabel(std::string label) {
+    _label = std::move(label);
+    NSButton* button = transfer(nativeHandle());
+    [button setTitle:makeButtonTitle(_label, buttonType(), bezelStyle())];
 }
 
 void ButtonView::doLayout(Rect rect) {
@@ -488,6 +565,12 @@ LabelView::LabelView(std::string text) {
     NSTextField* field = [NSTextField labelWithString:toNSString(text)];
     setNativeHandle(retain(field));
     _minSize = _preferredSize = { 80, 22 };
+    _layoutMode = { LayoutMode::Flex, LayoutMode::Static };
+}
+
+void LabelView::setText(std::string text) {
+    NSTextField* field = transfer(nativeHandle());
+    field.stringValue = toNSString(text);
 }
 
 void LabelView::doLayout(Rect frame) {

@@ -2,7 +2,7 @@
 #define AETHER_MACOS_MACOSUTIL_H
 
 #include <optional>
-#include <string>
+#include <string_view>
 
 #import <Appkit/NSColor.h>
 #import <Foundation/Foundation.h>
@@ -60,9 +60,7 @@ inline xui::Rect fromNSRect(NSRect rect) {
              { rect.size.width, rect.size.height } };
 }
 
-NSString* toNSString(std::string const& str);
-
-NSString* toNSString(char const* str);
+NSString* toNSString(std::string_view str);
 
 std::string toStdString(NSString* str);
 

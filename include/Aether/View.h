@@ -290,24 +290,84 @@ std::unique_ptr<TabView> Tab(TabViewElement (&&elements)[N]) {
     return Tab(toMoveOnlyVector(std::move(elements)));
 }
 
+enum class ButtonType { Default, Toggle, Switch, Radio };
+
+enum class BezelStyle {
+    /// Standard push button style
+    Push,
+    /// Flexible-height variant of `Push`
+    PushFlexHeight,
+    /// Circular bezel suitable for a small icon or single character
+    Circular,
+    ///
+    Help,
+    /// Squared edges and flexible height
+    SmallSquare,
+    /// Appropriate for use in a toolbar
+    Toolbar,
+    ///
+    Badge,
+};
+
 /// Button
 class ButtonView: public View {
 public:
-    ButtonView(std::string label, std::function<void()> action);
+    ButtonView(std::string label, std::function<void()> action,
+               ButtonType type);
 
     std::string const& label() const { return _label; }
 
     std::function<void()> const& action() const { return _action; }
 
+    ButtonType buttonType() const { return _type; }
+
+    BezelStyle bezelStyle() const { return _bezelStyle; }
+
+    void setBezelStyle(BezelStyle style);
+
+    void setLabel(std::string label);
+
 private:
     void doLayout(Rect rect) override;
+
+    ButtonType _type;
+    BezelStyle _bezelStyle = BezelStyle::Push;
 
     std::string _label;
     std::function<void()> _action;
 };
 
+/// Push button
+///
+///     ┌─────────────┐
+///     │    Label    │
+///     └─────────────┘
+///
 std::unique_ptr<ButtonView> Button(std::string label,
                                    std::function<void()> action = {});
+
+/// Toggle button that can be toggled between "active" and "inactive" states
+///
+///     ┌─────────────┐
+///     │    Label    │
+///     └─────────────┘
+///
+std::unique_ptr<ButtonView> ToggleButton(std::string label,
+                                         std::function<void()> action = {});
+
+/// Switch button that can be toggled between "on" and "off" states
+///
+///     ⬜︎/⬛︎ Label
+///
+std::unique_ptr<ButtonView> SwitchButton(std::string label,
+                                         std::function<void()> action = {});
+
+/// Radio button that can be toggled between "on" and "off" states
+///
+///     ◯/◉ Label
+///
+std::unique_ptr<ButtonView> RadioButton(std::string label,
+                                        std::function<void()> action = {});
 
 /// Switch
 class SwitchView: public View {
@@ -337,6 +397,8 @@ std::unique_ptr<TextFieldView> TextField(std::string defaultText = {});
 class LabelView: public View {
 public:
     explicit LabelView(std::string text);
+
+    void setText(std::string text);
 
 private:
     void doLayout(Rect frame) override;

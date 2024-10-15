@@ -140,6 +140,10 @@ inline void applyModifier(TabViewBorder border, TabView& view) {
     view.setBorder(border);
 }
 
+inline void applyModifier(BezelStyle style, ButtonView& button) {
+    button.setBezelStyle(style);
+}
+
 /// Modifier used to assign rvalue views to weak references
 template <typename V>
 constexpr auto AssignTo(WeakRef<V>& ref) {

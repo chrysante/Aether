@@ -372,7 +372,8 @@ WeakRef(std::unique_ptr<T>) -> WeakRef<T>;
 
 /// # MoveOnlyVector
 
-/// `std::vector` which is not constructible from a `std::initializer_list` to remove ambiguity with array overloads
+/// `std::vector` which is not constructible from a `std::initializer_list` to
+/// remove ambiguity with array overloads
 template <typename T>
 struct MoveOnlyVector: std::vector<T> {
 private:

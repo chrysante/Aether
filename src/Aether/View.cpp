@@ -204,7 +204,26 @@ std::unique_ptr<TabView> xui::Tab(MoveOnlyVector<TabViewElement> elements) {
 
 std::unique_ptr<ButtonView> xui::Button(std::string label,
                                         std::function<void()> action) {
-    return std::make_unique<ButtonView>(std::move(label), std::move(action));
+    return std::make_unique<ButtonView>(std::move(label), std::move(action),
+                                        ButtonType::Default);
+}
+
+std::unique_ptr<ButtonView> xui::ToggleButton(std::string label,
+                                              std::function<void()> action) {
+    return std::make_unique<ButtonView>(std::move(label), std::move(action),
+                                        ButtonType::Toggle);
+}
+
+std::unique_ptr<ButtonView> xui::SwitchButton(std::string label,
+                                              std::function<void()> action) {
+    return std::make_unique<ButtonView>(std::move(label), std::move(action),
+                                        ButtonType::Switch);
+}
+
+std::unique_ptr<ButtonView> xui::RadioButton(std::string label,
+                                             std::function<void()> action) {
+    return std::make_unique<ButtonView>(std::move(label), std::move(action),
+                                        ButtonType::Radio);
 }
 
 std::unique_ptr<ProgressIndicatorView> xui::ProgressBar() {

@@ -26,14 +26,10 @@ xui::Rect xui::fromAppkitCoords(NSRect rect, double height) {
     return { pos, fromNSSize(rect.size) };
 }
 
-NSString* xui::toNSString(std::string const& str) {
-    return toNSString(str.c_str());
-}
-
-NSString* xui::toNSString(char const* str) {
-    return
-        [[NSString alloc] initWithCString:str
-                                 encoding:NSStringEncodingConversionAllowLossy];
+NSString* xui::toNSString(std::string_view str) {
+    return [[NSString alloc] initWithBytes:str.data()
+                                    length:str.size()
+                                  encoding:NSUTF8StringEncoding];
 }
 
 std::string xui::toStdString(NSString* str) {
