@@ -117,15 +117,33 @@ private:
     void setFrame(Rect frame);
 };
 
+/// Horizonal stack view (Axis = X)
+///
+///     ┌─────────────┬─────────────┬─────────────┐
+///     │ children[0] │ children[1] │ children[2] │
+///     └─────────────┴─────────────┴─────────────┘
+///
 std::unique_ptr<StackView> HStack(UniqueVector<View> children);
 
+/// \overload
 template <size_t N>
 std::unique_ptr<StackView> HStack(std::unique_ptr<View> (&&children)[N]) {
     return HStack(toMoveOnlyVector(std::move(children)));
 }
 
+/// Vertical stack view
+///
+///     ┌─────────────┐
+///     │ children[0] │
+///     ├─────────────┤
+///     │ children[1] │
+///     ├─────────────┤
+///     │ children[2] │
+///     └─────────────┘
+///
 std::unique_ptr<StackView> VStack(UniqueVector<View> children);
 
+/// \overload
 template <size_t N>
 std::unique_ptr<StackView> VStack(std::unique_ptr<View> (&&children)[N]) {
     return VStack(toMoveOnlyVector(std::move(children)));
