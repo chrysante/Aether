@@ -198,6 +198,10 @@ std::unique_ptr<SplitView> xui::VSplit(UniqueVector<View> children) {
     return std::make_unique<SplitView>(Axis::Y, std::move(children));
 }
 
+std::unique_ptr<TabView> xui::Tab(MoveOnlyVector<TabViewElement> elements) {
+    return std::make_unique<TabView>(std::move(elements));
+}
+
 std::unique_ptr<ButtonView> xui::Button(std::string label,
                                         std::function<void()> action) {
     return std::make_unique<ButtonView>(std::move(label), std::move(action));

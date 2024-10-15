@@ -70,6 +70,7 @@ protected:
 
 private:
     friend class AggregateView; // To set _parent
+    friend class TabView;       // To set _parent
 
     void setAttributeImpl(ViewAttributeKey key, std::any value);
     void clearAttributeImpl(ViewAttributeKey key);
@@ -120,14 +121,14 @@ std::unique_ptr<StackView> HStack(UniqueVector<View> children);
 
 template <size_t N>
 std::unique_ptr<StackView> HStack(std::unique_ptr<View> (&&children)[N]) {
-    return HStack(toUniqueVector(std::move(children)));
+    return HStack(toMoveOnlyVector(std::move(children)));
 }
 
 std::unique_ptr<StackView> VStack(UniqueVector<View> children);
 
 template <size_t N>
 std::unique_ptr<StackView> VStack(std::unique_ptr<View> (&&children)[N]) {
-    return VStack(toUniqueVector(std::move(children)));
+    return VStack(toMoveOnlyVector(std::move(children)));
 }
 
 ///
@@ -145,14 +146,14 @@ std::unique_ptr<ScrollView> VScrollView(UniqueVector<View> children);
 
 template <size_t N>
 std::unique_ptr<ScrollView> VScrollView(std::unique_ptr<View> (&&children)[N]) {
-    return VScrollView(toUniqueVector(std::move(children)));
+    return VScrollView(toMoveOnlyVector(std::move(children)));
 }
 
 std::unique_ptr<ScrollView> HScrollView(UniqueVector<View> children);
 
 template <size_t N>
 std::unique_ptr<ScrollView> HScrollView(std::unique_ptr<View> (&&children)[N]) {
-    return HScrollView(toUniqueVector(std::move(children)));
+    return HScrollView(toMoveOnlyVector(std::move(children)));
 }
 
 class SplitView: public AggregateView {
@@ -212,7 +213,7 @@ std::unique_ptr<SplitView> HSplit(UniqueVector<View> children);
 /// \overload
 template <size_t N>
 std::unique_ptr<SplitView> HSplit(std::unique_ptr<View> (&&children)[N]) {
-    return HSplit(toUniqueVector(std::move(children)));
+    return HSplit(toMoveOnlyVector(std::move(children)));
 }
 
 /// User-resizable vertical split view
@@ -230,7 +231,45 @@ std::unique_ptr<SplitView> VSplit(UniqueVector<View> children);
 /// \overload
 template <size_t N>
 std::unique_ptr<SplitView> VSplit(std::unique_ptr<View> (&&children)[N]) {
-    return VSplit(toUniqueVector(std::move(children)));
+    return VSplit(toMoveOnlyVector(std::move(children)));
+}
+
+enum class TabPosition { None, Top, Left, Bottom, Right };
+
+enum class TabViewBorder { None, Line, Bezel };
+
+struct TabViewElement {
+    std::string title;
+    std::unique_ptr<View> view;
+};
+
+/// TabView
+class TabView: public View {
+public:
+    TabView(std::vector<TabViewElement> elements);
+
+    TabPosition tabPosition() const { return _tabPosition; }
+
+    void setTabPosition(TabPosition position);
+
+    TabViewBorder border() const { return _border; }
+
+    void setBorder(TabViewBorder border);
+
+private:
+    void doLayout(Rect frame) override;
+
+    TabPosition _tabPosition = TabPosition::Top;
+    TabViewBorder _border = TabViewBorder::Line;
+
+    std::vector<TabViewElement> elements;
+};
+
+std::unique_ptr<TabView> Tab(MoveOnlyVector<TabViewElement> elements);
+
+template <size_t N>
+std::unique_ptr<TabView> Tab(TabViewElement (&&elements)[N]) {
+    return Tab(toMoveOnlyVector(std::move(elements)));
 }
 
 /// Button

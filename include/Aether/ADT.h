@@ -370,34 +370,38 @@ WeakRef(T) -> WeakRef<T>;
 template <typename T>
 WeakRef(std::unique_ptr<T>) -> WeakRef<T>;
 
-/// # UniqueVector
+/// # MoveOnlyVector
 
+/// `std::vector` which is not constructible from a `std::initializer_list` to remove ambiguity with array overloads
 template <typename T>
-struct UniqueVector: std::vector<std::unique_ptr<T>> {
+struct MoveOnlyVector: std::vector<T> {
 private:
-    using Base = std::vector<std::unique_ptr<T>>;
+    using Base = std::vector<T>;
 
 public:
-    UniqueVector() = default;
-    UniqueVector(Base&& v): Base(std::move(v)) {}
+    MoveOnlyVector() = default;
+    MoveOnlyVector(Base&& v): Base(std::move(v)) {}
 
     template <size_t N>
-    UniqueVector(std::unique_ptr<T> (&&elems)[N]):
+    MoveOnlyVector(T (&&elems)[N]):
         Base(std::move_iterator(std::begin(elems)),
              std::move_iterator(std::end(elems))) {}
 };
 
 template <typename T>
-UniqueVector<T> toUniqueVector(std::span<std::unique_ptr<T>> elems) {
-    UniqueVector<T> v;
+using UniqueVector = MoveOnlyVector<std::unique_ptr<T>>;
+
+template <typename T>
+MoveOnlyVector<T> toMoveOnlyVector(std::span<T> elems) {
+    MoveOnlyVector<T> v;
     v.reserve(elems.size());
     std::move(std::begin(elems), std::end(elems), std::back_inserter(v));
     return v;
 }
 
 template <typename T, size_t N>
-UniqueVector<T> toUniqueVector(std::unique_ptr<T> (&&elems)[N]) {
-    return UniqueVector<T>(std::move(elems));
+MoveOnlyVector<T> toMoveOnlyVector(T (&&elems)[N]) {
+    return MoveOnlyVector<T>(std::move(elems));
 }
 
 } // namespace xui

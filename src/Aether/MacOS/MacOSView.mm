@@ -321,6 +321,76 @@ void SplitView::doLayout(Rect frame) {
     }
 }
 
+// MARK: - TabView
+
+static NSTabPosition toNS(TabPosition pos) {
+    using enum TabPosition;
+    switch (pos) {
+    case None:
+        return NSTabPositionNone;
+    case Top:
+        return NSTabPositionTop;
+    case Left:
+        return NSTabPositionLeft;
+    case Bottom:
+        return NSTabPositionBottom;
+    case Right:
+        return NSTabPositionRight;
+    }
+}
+
+static NSTabViewBorderType toNS(TabViewBorder border) {
+    using enum TabViewBorder;
+    switch (border) {
+    case None:
+        return NSTabViewBorderTypeNone;
+    case Line:
+        return NSTabViewBorderTypeLine;
+    case Bezel:
+        return NSTabViewBorderTypeBezel;
+    }
+}
+
+TabView::TabView(std::vector<TabViewElement> elems):
+    elements(std::move(elems)) {
+    NSTabView* view = [[NSTabView alloc] init];
+    view.tabPosition = toNS(_tabPosition);
+    view.tabViewBorderType = toNS(_border);
+    setNativeHandle(retain(view));
+    for (auto& [title, child]: elements) {
+        child->_parent = this;
+        NSTabViewItem* item = [[NSTabViewItem alloc] init];
+        item.view = transfer(child->nativeHandle());
+        item.label = toNSString(title);
+        [view addTabViewItem:item];
+    }
+}
+
+void TabView::setTabPosition(TabPosition position) {
+    _tabPosition = position;
+    NSTabView* view = transfer(nativeHandle());
+    view.tabPosition = toNS(_tabPosition);
+}
+
+void TabView::setBorder(TabViewBorder border) {
+    _border = border;
+    NSTabView* view = transfer(nativeHandle());
+    view.tabViewBorderType = toNS(_border);
+}
+
+void TabView::doLayout(Rect frame) {
+    NSTabView* view = transfer(nativeHandle());
+    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
+    if (elements.empty()) {
+        return;
+    }
+    NSView* selected = view.selectedTabViewItem.view;
+    auto childFrame = fromAppkitCoords(selected.frame, frame.height());
+    for (auto& [title, child]: elements) {
+        child->layout(childFrame);
+    }
+}
+
 // MARK: - Button
 
 @interface NSButton (BlockAction)

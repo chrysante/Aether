@@ -9,6 +9,12 @@ using namespace xui;
 
 namespace {
 
+std::unique_ptr<View> LabelledSwitch(std::string label) {
+    return HStack({ Label(std::move(label)) | AlignY::Center, Spacer(),
+                    std::make_unique<SwitchView>() | AlignY::Center }) |
+           XFlex() | PreferredHeight(34) | PaddingX(6) | PaddingY(6);
+}
+
 struct Sandbox: Application {
     Sandbox() {
         window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
@@ -17,6 +23,13 @@ struct Sandbox: Application {
         //     Sidebar(),
         // });
 
+        window->setContentView(Tab({
+                                   { "Sidebar", Sidebar() },
+                                   { "Details", DetailPanel() },
+                               }) |
+                               TabViewBorder::Bezel | TabPosition::Left);
+
+        return;
         window->setContentView(
             HSplit({
                 VSplit({
@@ -65,6 +78,9 @@ struct Sandbox: Application {
             std::cout << (textField ? textField->getText() : "") << std::endl;
         };
         auto cycleSplitStyle = [this] {
+            if (!splitView) {
+                return;
+            }
             auto curr = splitView->splitterStyle();
             auto next = curr == SplitterStyle::Pane ?
                             SplitterStyle::Thin :
@@ -78,7 +94,7 @@ struct Sandbox: Application {
               ProgressBar() | XFlex() | PaddingX(8),
               ProgressSpinner() | XFlex() | PaddingX(8),
               TextField("Input") | AssignTo(textField),
-              std::make_unique<SwitchView>() });
+              std::make_unique<SwitchView>(), LabelledSwitch("Some Switch") });
     }
 
     std::unique_ptr<Window> window;

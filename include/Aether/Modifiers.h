@@ -132,6 +132,14 @@ private:
 
 inline constexpr detail::SplitViewCollapsableFn SplitViewCollapsable{ true };
 
+inline void applyModifier(TabPosition pos, TabView& view) {
+    view.setTabPosition(pos);
+}
+
+inline void applyModifier(TabViewBorder border, TabView& view) {
+    view.setBorder(border);
+}
+
 /// Modifier used to assign rvalue views to weak references
 template <typename V>
 constexpr auto AssignTo(WeakRef<V>& ref) {
