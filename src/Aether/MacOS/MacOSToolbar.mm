@@ -25,7 +25,6 @@ struct ToolbarView::Impl {
         }
         NSToolbarItem* item =
             [[NSToolbarItem alloc] initWithItemIdentifier:itemIdentifier];
-
         auto* view = toolbar._views[index].get();
         item.view = transfer(view->nativeHandle());
         return item;

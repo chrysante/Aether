@@ -608,9 +608,10 @@ void ProgressIndicatorView::doLayout(Rect frame) {
 @implementation FlatColorView
 - (instancetype)initWithColor:(NSColor*)color {
     self = [super init];
-    if (self) {
-        self.color = color;
+    if (!self) {
+        return nil;
     }
+    self.color = color;
     return self;
 }
 - (void)drawRect:(NSRect)dirtyRect {

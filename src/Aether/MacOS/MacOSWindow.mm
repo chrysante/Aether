@@ -25,15 +25,21 @@ struct internal::WindowImpl {
     static void onResize(Window& window, Rect /* newFrame */) {
         layoutContent(window);
     }
+
+    static void onClose(Window& window) {
+        window._content.reset();
+        window._toolbar.reset();
+    }
 };
 
 using Impl = internal::WindowImpl;
 
-@interface MyWindowDelegate: NSObject <NSWindowDelegate>
-@property Window* window;
+static void const* const WindowHandleKey = &WindowHandleKey;
+
+@interface AetherWindowDelegate: NSObject <NSWindowDelegate>
 @end
 
-@implementation MyWindowDelegate
+@implementation AetherWindowDelegate
 
 - (BOOL)windowShouldClose:(NSWindow*)sender {
     // Return YES to allow the window to close, NO to prevent it
@@ -42,8 +48,9 @@ using Impl = internal::WindowImpl;
 
 // Called when the window has been resized
 - (void)windowDidResize:(NSNotification*)notification {
-    NSWindow* window = [notification object];
-    Impl::onResize(*self.window, fromNSRect(window.frame));
+    NSWindow* native = [notification object];
+    Window* window = getAssocPointer<Window*>(native, WindowHandleKey);
+    Impl::onResize(*window, fromNSRect(native.frame));
 }
 
 // Called when the window is about to become the key window
@@ -80,11 +87,14 @@ using Impl = internal::WindowImpl;
 
 // Called before the window is ordered out (hidden)
 - (void)windowWillClose:(NSNotification*)notification {
+    NSWindow* native = notification.object;
+    Window* window = getAssocPointer<Window*>(native, WindowHandleKey);
+    Impl::onClose(*window);
 }
 
 @end
 
-static void const* DelegateKey = &DelegateKey;
+AetherWindowDelegate* gWindowDelegate = [[AetherWindowDelegate alloc] init];
 
 Window::Window(std::string title, Rect frame, WindowProperties props,
                std::unique_ptr<View> content):
@@ -100,15 +110,13 @@ Window::Window(std::string title, Rect frame, WindowProperties props,
                     backing:NSBackingStoreBuffered
                       defer:NO];
     _handle = retain(window);
-    MyWindowDelegate* delegate = [[MyWindowDelegate alloc] init];
+    setAssocPointer(window, WindowHandleKey, this);
     if (props.fullSizeContentView) {
         window.titlebarAppearsTransparent = YES;
         window.styleMask |= NSWindowStyleMaskFullSizeContentView;
     }
-    delegate.window = this;
-    objc_setAssociatedObject(window, DelegateKey, delegate,
-                             OBJC_ASSOCIATION_RETAIN);
-    [window setDelegate:delegate];
+    window.titleVisibility = NSWindowTitleHidden;
+    [window setDelegate:gWindowDelegate];
     setContentView(std::move(content));
     [window makeKeyAndOrderFront:nil];
 }

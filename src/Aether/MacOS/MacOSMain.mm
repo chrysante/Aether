@@ -57,15 +57,18 @@ int macOSMain(int, char const**) {
 
         // Custom event loop
         while (true) {
-            NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                                                untilDate:[NSDate distantFuture]
-                                                   inMode:NSDefaultRunLoopMode
-                                                  dequeue:YES];
-            if (!event) {
-                break;
+            @autoreleasepool {
+                NSEvent* event = [NSApp
+                    nextEventMatchingMask:NSEventMaskAny
+                                untilDate:[NSDate distantFuture]
+                                   inMode:NSDefaultRunLoopMode
+                                  dequeue:YES];
+                if (!event) {
+                    break;
+                }
+                [NSApp sendEvent:event];
+                [NSApp updateWindows];
             }
-            [NSApp sendEvent:event];
-            [NSApp updateWindows];
         }
     }
     return 0;

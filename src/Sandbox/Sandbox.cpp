@@ -24,6 +24,8 @@ struct Sandbox: Application {
                 BezelStyle::Toolbar,
             Button("Hello 2", [] { std::cout << "Hello 2\n"; }) |
                 BezelStyle::Toolbar,
+            Button("Hello 3", [] { std::cout << "Hello 3\n"; }) |
+                BezelStyle::Badge,
         }));
 
         window->setContentView(
