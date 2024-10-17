@@ -1,15 +1,19 @@
 #ifndef AETHER_EVENT_TYPE_DEF
-#define AETHER_EVENT_TYPE_DEF(Name)
+#define AETHER_EVENT_TYPE_DEF(Name, Parent, Corporeality)
 #endif
 
-AETHER_EVENT_TYPE_DEF(Event)
-AETHER_EVENT_TYPE_DEF(MouseEvent)
+AETHER_EVENT_TYPE_DEF(Event, NoParent, Abstract)
+AETHER_EVENT_TYPE_DEF(MouseEvent, Event, Abstract)
+
+AETHER_EVENT_TYPE_DEF(MouseClickEvent, MouseEvent, Abstract)
 
 #ifndef AETHER_CONCRETE_EVENT_TYPE_DEF
-#define AETHER_CONCRETE_EVENT_TYPE_DEF(Name) AETHER_EVENT_TYPE_DEF(Name)
+#define AETHER_CONCRETE_EVENT_TYPE_DEF(...) AETHER_EVENT_TYPE_DEF(__VA_ARGS__)
 #endif
 
-AETHER_CONCRETE_EVENT_TYPE_DEF(ScrollEvent)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDownEvent, MouseClickEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseUpEvent, MouseClickEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(ScrollEvent, MouseEvent, Concrete)
 
 #undef AETHER_CONCRETE_EVENT_TYPE_DEF
 

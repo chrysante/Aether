@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iosfwd>
 #include <memory>
 #include <span>
 #include <unordered_set>
@@ -151,6 +152,16 @@ constexpr Vec<T, N> operator/(Vec<T, N> const& a, Vec<T, N> const& b) {
     return [&]<size_t... I>(std::index_sequence<I...>) {
         return Vec<T, N>{ (a.data[I] / b.data[I])... };
     }(std::make_index_sequence<N>());
+}
+
+template <typename T, size_t N, typename CharT, typename TraitsT>
+std::basic_ostream<CharT, TraitsT>& operator<<(
+    std::basic_ostream<CharT, TraitsT>& str, Vec<T, N> const& v) {
+    str << "(";
+    for (bool first = true; auto& value: v) {
+        str << (first ? ((void)(first = false), "") : ", ") << value;
+    }
+    return str;
 }
 
 namespace detail {

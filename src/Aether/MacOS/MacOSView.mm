@@ -52,13 +52,56 @@ static V* getView(NSView* view) {
 
 // MARK: - Events
 
+MomentumPhase fromNS(NSEventPhase phase) {
+    switch (phase) {
+    case NSEventPhaseNone:
+        return MomentumPhase::None;
+    case NSEventPhaseBegan:
+        return MomentumPhase::Began;
+    case NSEventPhaseStationary:
+        return MomentumPhase::Stationary;
+    case NSEventPhaseChanged:
+        return MomentumPhase::Changed;
+    case NSEventPhaseEnded:
+        return MomentumPhase::Ended;
+    case NSEventPhaseCancelled:
+        return MomentumPhase::Cancelled;
+    case NSEventPhaseMayBegin:
+        return MomentumPhase::MayBegin;
+    }
+    return MomentumPhase::None;
+}
+
 struct View::Impl {
-    static bool handleScrollWheel(View& view, NSEvent __weak* event) {
-        auto itr = view._eventHandlers.find(EventType::ScrollEvent);
-        if (itr != view._eventHandlers.end()) {
-            return itr->second(ScrollEvent{});
+    static auto* getHandler(View& view, EventType type) {
+        auto itr = view._eventHandlers.find(type);
+        return itr != view._eventHandlers.end() ? &itr->second : nullptr;
+    }
+
+    static bool handleEvent(EventType type, View& view, NSEvent __weak* event) {
+        auto* handler = getHandler(view, type);
+        if (!handler) return false;
+        switch (type) {
+        case EventType::ScrollEvent:
+            return (*handler)(
+                ScrollEvent(nullptr,
+                            fromAppkitCoords(event.locationInWindow,
+                                             event.window.frame.size.height),
+                            { event.scrollingDeltaX, event.scrollingDeltaY },
+                            fromNS(event.momentumPhase)));
+        case EventType::MouseDownEvent:
+            return (*handler)(
+                MouseDownEvent(nullptr, fromAppkitCoords(event.locationInWindow,
+                                                         event.window.frame.size
+                                                             .height)));
+        case EventType::MouseUpEvent:
+            return (*handler)(
+                MouseUpEvent(nullptr,
+                             fromAppkitCoords(event.locationInWindow,
+                                              event.window.frame.size.height)));
+        default:
+            return false;
         }
-        return false;
     }
 };
 
@@ -66,8 +109,24 @@ struct View::Impl {
 @end
 @implementation EventHandler
 - (void)scrollWheel:(NSEvent*)event {
-    if (!View::Impl::handleScrollWheel(*getView(self.superview), event)) {
+    if (!View::Impl::handleEvent(EventType::ScrollEvent,
+                                 *getView(self.superview), event))
+    {
         [super scrollWheel:event];
+    }
+}
+- (void)mouseDown:(NSEvent*)event {
+    if (!View::Impl::handleEvent(EventType::MouseDownEvent,
+                                 *getView(self.superview), event))
+    {
+        [super mouseDown:event];
+    }
+}
+- (void)mouseUp:(NSEvent*)event {
+    if (!View::Impl::handleEvent(EventType::MouseUpEvent,
+                                 *getView(self.superview), event))
+    {
+        [super mouseUp:event];
     }
 }
 @end

@@ -1,74 +1,119 @@
 #ifndef AETHER_EVENT_H
 #define AETHER_EVENT_H
 
+#include <functional>
+#include <type_traits>
+
+#include <csp.hpp>
+
 namespace xui {
 
+class Window;
+
+/// Identifiers for each event type
 enum class EventType {
-#define AETHER_EVENT_TYPE_DEF(Name) Name,
+#define AETHER_EVENT_TYPE_DEF(Name, ...) Name,
 #include <Aether/Event.def>
 };
 
-class Event {
+/// Forward declarations of all event types
+#define AETHER_EVENT_TYPE_DEF(Name, ...) class Name;
+#include <Aether/Event.def>
+
+using NoParent = void;
+
+} // namespace xui
+
+#define AETHER_EVENT_TYPE_DEF(Name, Parent, Corporeality)                      \
+    CSP_DEFINE(xui::Name, xui::EventType::Name, xui::Parent, Corporeality)
+#include <Aether/Event.def>
+
+namespace xui {
+
+class Event: public csp::base_helper<Event> {
 public:
-    EventType type() const { return _type; }
+    EventType type() const { return get_rtti(*this); }
+
+    Window* window() const { return _window; }
 
 protected:
-    explicit Event(EventType type): _type(type) {}
+    explicit Event(EventType type, Window* window):
+        base_helper(type), _window(window) {}
 
 private:
-    EventType _type;
+    Window* _window;
 };
 
 class MouseEvent: public Event {
+public:
+    Vec2<double> locationInWindow() const { return _locationInWindow; }
+
 protected:
-    explicit MouseEvent(EventType type): Event(type) {}
+    explicit MouseEvent(EventType type, Window* window,
+                        Vec2<double> locationInWindow):
+        Event(type, window), _locationInWindow(locationInWindow) {}
+
+private:
+    Vec2<double> _locationInWindow;
+};
+
+class MouseClickEvent: public MouseEvent {
+protected:
+    explicit MouseClickEvent(EventType type, Window* window,
+                             Vec2<double> locationInWindow):
+        MouseEvent(type, window, locationInWindow) {}
+};
+
+class MouseDownEvent: public MouseClickEvent {
+public:
+    explicit MouseDownEvent(Window* window, Vec2<double> locationInWindow):
+        MouseClickEvent(EventType::MouseDownEvent, window, locationInWindow) {}
+};
+
+class MouseUpEvent: public MouseClickEvent {
+public:
+    explicit MouseUpEvent(Window* window, Vec2<double> locationInWindow):
+        MouseClickEvent(EventType::MouseUpEvent, window, locationInWindow) {}
+};
+
+enum class MomentumPhase {
+    None,
+    Began,
+    Stationary,
+    Changed,
+    Ended,
+    Cancelled,
+    MayBegin,
 };
 
 class ScrollEvent: public MouseEvent {
 public:
-    ScrollEvent(): MouseEvent(EventType::ScrollEvent) {}
-};
+    explicit ScrollEvent(Window* window, Vec2<double> locationInWindow,
+                         Vec2<double> delta, MomentumPhase phase):
+        MouseEvent(EventType::ScrollEvent, window, locationInWindow),
+        _delta(delta),
+        _momentumPhase(phase) {}
 
-class EventUnion {
-public:
-#define AETHER_CONCRETE_EVENT_TYPE_DEF(Name)                                   \
-    EventUnion(Name value): m_##Name(std::move(value)) {}
-#include <Aether/Event.def>
+    Vec2<double> delta() const { return _delta; }
 
-    EventType type() const { return m_ScrollEvent.type(); }
-
-    template <typename E>
-    auto const& get() const {
-        if constexpr (false) {
-        }
-#define AETHER_CONCRETE_EVENT_TYPE_DEF(Name)                                   \
-    else if constexpr (std::is_same_v<E, xui::Name>) {                         \
-        assert(type() == EventType::Name);                                     \
-        return m_##Name;                                                       \
-    }
-#include <Aether/Event.def>
-        else {
-            static_assert(!std::is_same_v<E, E>, "Invalid type");
-        }
-    }
+    MomentumPhase momentumPhase() const { return _momentumPhase; }
 
 private:
-    union {
-#define AETHER_CONCRETE_EVENT_TYPE_DEF(Name) Name m_##Name;
-#include <Aether/Event.def>
-    };
+    Vec2<double> _delta;
+    MomentumPhase _momentumPhase;
 };
+
+using EventUnion = csp::dyn_union<Event>;
 
 template <typename>
 inline constexpr auto EventTypeToID = nullptr;
 
-#define AETHER_EVENT_TYPE_DEF(Name)                                            \
+#define AETHER_EVENT_TYPE_DEF(Name, ...)                                       \
     template <>                                                                \
     inline constexpr EventType EventTypeToID<Name> = EventType::Name;
 #include <Aether/Event.def>
 
-template <typename F,
-          typename StdFunction = decltype(std::function{ std::declval<F>() })>
+template <typename F, typename = decltype(std::function{ std::declval<F>() })>
 struct EventHandlerEventTypeImpl;
 
 template <typename F, typename R, typename E>

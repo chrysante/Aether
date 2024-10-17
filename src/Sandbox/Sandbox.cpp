@@ -27,20 +27,28 @@ struct Sandbox: Application {
             Button("Hello 3", [] { std::cout << "Hello 3\n"; }) |
                 BezelStyle::Badge,
         }));
-        auto eventHandler = [](ScrollEvent) {
-            std::cout << "Got Event\n";
+        auto scrollHandler = [](ScrollEvent const& event) {
+            std::cout << "Location: " << event.locationInWindow() << "\n";
+            std::cout << "Delta:    " << event.delta() << "\n";
+            return false;
+        };
+        auto mouseDownHandler = [](MouseDownEvent const& event) {
+            std::cout << "Location: " << event.locationInWindow() << "\n";
             return false;
         };
         window->setContentView(
             HSplit({
                 VSplit({
-                    std::make_unique<ColorView>(Color::Red()),
+                    std::make_unique<ColorView>(Color::Red()) |
+                        OnEvent(mouseDownHandler),
                     std::make_unique<ColorView>(Color::Green()) |
-                        MinHeight(100) | SplitViewCollapsable,
+                        MinHeight(100) | SplitViewCollapsable |
+                        OnEvent(scrollHandler),
                     std::make_unique<ColorView>(Color::Blue()),
                 }) | SplitterStyle::Thick |
                     MinWidth(120) | SplitViewCollapsable,
-                Sidebar() | OnEvent(eventHandler) | SplitViewCollapsable(false),
+                Sidebar() | OnEvent(scrollHandler) |
+                    SplitViewCollapsable(false),
                 DetailPanel() | MinWidth(150) | SplitViewCollapsable,
                 std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
             }) |
