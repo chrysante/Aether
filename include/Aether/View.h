@@ -6,6 +6,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -17,6 +18,22 @@
 namespace xui {
 
 namespace detail {
+
+struct DerefT {
+    constexpr decltype(auto) operator()(auto&& p) const {
+        return std::forward<decltype(p)>(p).get();
+    }
+} inline constexpr Get{};
+
+struct PrivateViewKeyT {
+    static PrivateViewKeyT const Instance;
+
+private:
+    PrivateViewKeyT() = default;
+};
+
+constexpr PrivateViewKeyT PrivateViewKeyT::Instance{};
+inline constexpr PrivateViewKeyT PrivateViewKey = PrivateViewKeyT::Instance;
 
 static double doubleValOr(double value, double fallback) {
     return std::isnan(value) ? fallback : value;
@@ -147,8 +164,22 @@ public:
 
     struct Impl;
 
+    auto subviews() { return _subviews | std::views::transform(detail::Get); }
+    auto subviews() const {
+        return _subviews | std::views::transform(detail::Get);
+    }
+
+    size_t numSubviews() const { return _subviews.size(); }
+    View* subviewAt(size_t index) {
+        return const_cast<View*>(std::as_const(*this).subviewAt(index));
+    }
+    View const* subviewAt(size_t index) const {
+        assert(index < numSubviews());
+        return _subviews[index].get();
+    }
+
 protected:
-    View(Vec2<LayoutMode> layoutMode,
+    View(detail::PrivateViewKeyT, Vec2<LayoutMode> layoutMode,
          detail::MinSize minSize = detail::MinSize(),
          detail::PrefSize prefSize = detail::PrefSize(),
          detail::MaxSize maxSize = detail::MaxSize());
@@ -159,9 +190,22 @@ protected:
 
     void requestLayout();
 
+    View* addSubview(std::unique_ptr<View> view);
+
+    template <std::derived_from<View> V>
+    V* addSubview(std::unique_ptr<V> view) {
+        return static_cast<V*>(
+            addSubview(std::unique_ptr<View>(view.release())));
+    }
+
+    void setSubviews(std::vector<std::unique_ptr<View>> views);
+
+    /// Sets the subviews without calling the backing API
+    void setSubviewsWeak(detail::PrivateViewKeyT,
+                         std::vector<std::unique_ptr<View>> views);
+
 private:
-    friend class AggregateView; // To set _parent
-    friend class TabView;       // To set _parent
+    friend class TabView; // To set _parent
 
     void installEventHandler(EventType type,
                              std::function<bool(EventUnion const&)> handler);
@@ -175,6 +219,7 @@ private:
     void* _nativeHandle = nullptr;
     Vec2<LayoutMode> _layoutMode;
     Size _minSize, _maxSize, _prefSize;
+    std::vector<std::unique_ptr<View>> _subviews;
     std::unordered_map<ViewAttributeKey, std::any> _attribMap;
     std::unordered_map<EventType, std::function<bool(EventUnion const&)>>
         _eventHandlers;
@@ -190,29 +235,8 @@ private:
 
 std::unique_ptr<SpacerView> Spacer();
 
-class AggregateView: public View {
-protected:
-    AggregateView(std::vector<std::unique_ptr<View>> children,
-                  Vec2<LayoutMode> layoutMode,
-                  detail::MinSize minSize = detail::MinSize(),
-                  detail::PrefSize prefSize = detail::PrefSize(),
-                  detail::MaxSize maxSize = detail::MaxSize());
-
-protected:
-    View* addSubview(std::unique_ptr<View> view);
-
-    template <std::derived_from<View> V>
-    V* addSubview(std::unique_ptr<V> view) {
-        return static_cast<V*>(
-            addSubview(std::unique_ptr<View>(view.release())));
-    }
-
-protected:
-    std::vector<std::unique_ptr<View>> _children;
-};
-
 /// Stacks child views along a given axis
-class StackView: public AggregateView {
+class StackView: public View {
 public:
     StackView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
@@ -264,7 +288,7 @@ std::unique_ptr<StackView> ZStack(std::unique_ptr<View> (&&children)[N]) {
 }
 
 ///
-class ScrollView: public AggregateView {
+class ScrollView: public View {
 public:
     ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
@@ -290,7 +314,7 @@ std::unique_ptr<ScrollView> HScrollView(std::unique_ptr<View> (&&children)[N]) {
     return HScrollView(toMoveOnlyVector(std::move(children)));
 }
 
-class SplitView: public AggregateView {
+class SplitView: public View {
 public:
     SplitView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
@@ -548,7 +572,7 @@ private:
 };
 
 ///
-class CustomView: public AggregateView {
+class CustomView: public View {
 protected:
     explicit CustomView(Vec2<LayoutMode> layoutMode);
 };

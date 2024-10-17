@@ -9,9 +9,10 @@
 using namespace xui;
 
 using namespace detail::viewProperties;
+using detail::PrivateViewKey;
 
-View::View(Vec2<LayoutMode> layoutMode, MinSize minSize, PrefSize prefSize,
-           MaxSize maxSize):
+View::View(detail::PrivateViewKeyT, Vec2<LayoutMode> layoutMode,
+           MinSize minSize, PrefSize prefSize, MaxSize maxSize):
     _layoutMode(layoutMode),
     _minSize(minSize.value),
     _maxSize(maxSize.value),
@@ -40,21 +41,19 @@ std::any View::getAttributeImpl(ViewAttributeKey key) const {
     return itr != _attribMap.end() ? itr->second : std::any();
 }
 
-AggregateView::AggregateView(std::vector<std::unique_ptr<View>> children,
-                             Vec2<LayoutMode> layoutMode,
-                             detail::MinSize minSize, detail::PrefSize prefSize,
-                             detail::MaxSize maxSize):
-    View(layoutMode, minSize, prefSize, maxSize),
-    _children(std::move(children)) {
-    for (auto& child: _children) {
-        child->_parent = this;
+void View::setSubviewsWeak(detail::PrivateViewKeyT,
+                           std::vector<std::unique_ptr<View>> views) {
+    _subviews = std::move(views);
+    for (auto* view: subviews()) {
+        view->_parent = this;
     }
 }
 
 static constexpr Size SpacerMinSize = { 5, 5 };
 
 SpacerView::SpacerView():
-    View({ LayoutMode::Flex, LayoutMode::Flex }, MinSize(SpacerMinSize)) {}
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex },
+         MinSize(SpacerMinSize)) {}
 
 std::unique_ptr<SpacerView> xui::Spacer() {
     return std::make_unique<SpacerView>();
@@ -195,14 +194,12 @@ static Rect layoutChildrenZ(auto&& children, Rect frame) {
 
 void StackView::doLayout(Rect frame) {
     setFrame(frame);
-    auto childrenView =
-        _children | ranges::views::transform([](auto& c) { return c.get(); });
     dispatchAxis(axis, [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
-            layoutChildrenZ(childrenView, frame);
+            layoutChildrenZ(subviews(), frame);
         }
         else {
-            layoutChildrenXY<A>(childrenView, frame,
+            layoutChildrenXY<A>(subviews(), frame,
                                 { .fillAvailSpace = { true, true } });
         }
     });
@@ -222,15 +219,13 @@ std::unique_ptr<StackView> xui::ZStack(UniqueVector<View> children) {
 
 void ScrollView::doLayout(Rect frame) {
     setFrame(frame);
-    auto childrenView =
-        _children | ranges::views::transform([](auto& c) { return c.get(); });
     dispatchAxis(axis, [&]<Axis A>(std::integral_constant<Axis, A>) {
         if constexpr (A == Axis::Z) {
             assert(false);
         }
         else {
             Rect total =
-                layoutChildrenXY<A>(childrenView, frame,
+                layoutChildrenXY<A>(subviews(), frame,
                                     { .fillAvailSpace{ flip(A), true } });
             setDocumentSize(max(total.size(), frame.size()));
         }

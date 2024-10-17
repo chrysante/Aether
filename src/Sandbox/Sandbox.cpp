@@ -6,8 +6,6 @@
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
-#include "CustomView.h"
-
 using namespace xui;
 
 namespace {
@@ -98,11 +96,11 @@ struct Sandbox: Application {
             return false;
         };
 
-        window->setContentView(HSplit({
-            VStack({ Button("A"), Button("B") }),
-            std::make_unique<NodeEditorView>(),
-        }));
-        return;
+        // window->setContentView(HSplit({
+        //     VStack({ Button("A"), Button("B") }),
+        //     std::make_unique<NodeEditorView>(),
+        // }));
+        // return;
 
         window->setContentView(
             HSplit({

@@ -16,6 +16,7 @@
 
 using namespace xui;
 using namespace detail::viewProperties;
+using detail::PrivateViewKey;
 
 // MARK: - View
 
@@ -53,6 +54,18 @@ static V* getView(NSView* view) {
 void View::requestLayout() {
     NSView* view = transfer(nativeHandle());
     [view setNeedsLayout:true];
+}
+
+void View::setSubviews(std::vector<std::unique_ptr<View>> views) {
+    NSView* native = transfer(nativeHandle());
+    NSArray* nativeSubviews = [native subviews];
+    for (NSView* subview in nativeSubviews) {
+        [subview removeFromSuperview];
+    }
+    setSubviewsWeak(PrivateViewKey, std::move(views));
+    for (auto* child: subviews()) {
+        [native addSubview:transfer(child->nativeHandle())];
+    }
 }
 
 // MARK: - Events
@@ -317,43 +330,39 @@ bool View::setFrame(Rect frame) {
 
 // MARK: - AggregateView
 
-View* AggregateView::addSubview(std::unique_ptr<View> view) {
+View* View::addSubview(std::unique_ptr<View> view) {
     NSView* native = transfer(nativeHandle());
     if (NSView* nativeChild = transfer(view->nativeHandle())) {
         [native addSubview:nativeChild];
     }
-    _children.push_back(std::move(view));
-    return _children.back().get();
+    _subviews.push_back(std::move(view));
+    return _subviews.back().get();
 }
 
 // MARK: - StackView
 
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
-    axis(axis) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
     NSView* view = [[NSView alloc] init];
-    for (auto& child: _children) {
-        NSView* childView = transfer(child->nativeHandle());
-        [view addSubview:childView];
-    }
     setNativeHandle(retain(view));
+    setSubviews(std::move(children));
 }
 
 // MARK: - ScrollView
 
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
-    axis(axis) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
+    setSubviewsWeak(PrivateViewKey, std::move(children));
     NSView* content = [[NSView alloc] init];
-    NSScrollView* VScrollView = [[NSScrollView alloc] init];
-    for (auto& child: _children) {
+    NSScrollView* scrollView = [[NSScrollView alloc] init];
+    for (auto* child: subviews()) {
         NSView* childView = transfer(child->nativeHandle());
         [content addSubview:childView];
     }
-    [VScrollView setDocumentView:content];
-    VScrollView.hasHorizontalScroller = axis == Axis::X;
-    VScrollView.hasVerticalScroller = axis == Axis::Y;
-    setNativeHandle(retain(VScrollView));
+    [scrollView setDocumentView:content];
+    scrollView.hasHorizontalScroller = axis == Axis::X;
+    scrollView.hasVerticalScroller = axis == Axis::Y;
+    setNativeHandle(retain(scrollView));
 }
 
 void ScrollView::setDocumentSize(Size size) {
@@ -412,13 +421,13 @@ static SplitViewDelegate* const gSplitViewDelegate =
     [[SplitViewDelegate alloc] init];
 
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
-    axis(axis) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
+    setSubviewsWeak(PrivateViewKey, std::move(children));
     AetherSplitView* view = [[AetherSplitView alloc] init];
     view.arrangesAllSubviews = NO;
     view.This = this;
     view.vertical = axis == Axis::X;
-    for (auto& child: _children) {
+    for (auto* child: subviews()) {
         [view addArrangedSubview:transfer(child->nativeHandle())];
     }
     setNativeHandle(retain(view));
@@ -460,12 +469,12 @@ void SplitView::setSplitterThickness(std::optional<double> thickness) {
 double SplitView::sizeWithoutDividers() const {
     NSSplitView* view = transfer(nativeHandle());
     double totalSize = fromNSSize(view.frame.size)[axis];
-    return totalSize - view.dividerThickness * (_children.size() - 1);
+    return totalSize - view.dividerThickness * (numSubviews() - 1);
 }
 
 bool SplitView::isChildCollapsed(size_t childIndex) const {
     NSSplitView* view = (NSSplitView*)transfer(nativeHandle());
-    NSView* subview = transfer(_children[childIndex]->nativeHandle());
+    NSView* subview = transfer(subviewAt(childIndex)->nativeHandle());
     return [view isSubviewCollapsed:subview];
 }
 
@@ -502,8 +511,8 @@ void SplitView::didResizeSubviews() {
     auto frame = fromAppkitCoords(view.frame, view.superview.frame.size.height);
     double totalSize = sizeWithoutDividers();
     double fracSum = 0;
-    for (size_t i = 0; i < _children.size(); ++i) {
-        auto* child = _children[i].get();
+    for (size_t i = 0; i < numSubviews(); ++i) {
+        auto* child = subviewAt(i);
         double size = child->size()[axis];
         double frac = size / totalSize;
         childFractions[i] = frac;
@@ -519,8 +528,8 @@ void SplitView::didResizeSubviews() {
 
 double SplitView::constrainSplitPosition(double proposedPosition,
                                          size_t index) const {
-    auto* left = _children[index].get();
-    auto* right = _children[index + 1].get();
+    auto* left = subviewAt(index);
+    auto* right = subviewAt(index + 1);
     // Must transform the position again because of the flipped coordinate
     // system
     Position leftPosition = left->position();
@@ -552,16 +561,16 @@ void SplitView::doLayout(Rect frame) {
     }
     double totalSize = sizeWithoutDividers();
     if (childFractions.empty()) {
-        double frac = 1.0 / _children.size();
-        childFractions.resize(_children.size(), frac);
+        double frac = 1.0 / numSubviews();
+        childFractions.resize(numSubviews(), frac);
     }
     double offset = 0;
-    for (size_t i = 0; i < _children.size(); ++i) {
+    for (size_t i = 0; i < numSubviews(); ++i) {
         if (isChildCollapsed(i)) {
             offset += dividerThickness;
             continue;
         }
-        auto& child = _children[i];
+        auto* child = subviewAt(i);
         double frac = childFractions[i];
         assert(frac >= 0.0);
         double childSize = totalSize * frac;
@@ -609,7 +618,8 @@ static NSTabViewBorderType toNS(TabViewBorder border) {
 }
 
 TabView::TabView(std::vector<TabViewElement> elems):
-    View({ LayoutMode::Flex, LayoutMode::Flex }), elements(std::move(elems)) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }),
+    elements(std::move(elems)) {
     NSTabView* view = [[NSTabView alloc] init];
     view.tabPosition = toNS(_tabPosition);
     view.tabViewBorderType = toNS(_border);
@@ -740,7 +750,8 @@ NSString* makeButtonTitle(std::string_view title, ButtonType type,
 
 ButtonView::ButtonView(std::string label, std::function<void()> action,
                        ButtonType type):
-    View({ LayoutMode::Static, LayoutMode::Static }, MinSize({ 80, 34 })),
+    View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static },
+         MinSize({ 80, 34 })),
     _type(type),
     _label(std::move(label)),
     _action(std::move(action)) {
@@ -771,7 +782,8 @@ void ButtonView::setLabel(std::string label) {
 
 // MARK: - Switch
 
-SwitchView::SwitchView(): View({ LayoutMode::Static, LayoutMode::Static }) {
+SwitchView::SwitchView():
+    View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static }) {
     NSSwitch* view = [[NSSwitch alloc] init];
     setNativeHandle(retain(view));
     setMinSize(fromNSSize(view.intrinsicContentSize));
@@ -780,7 +792,8 @@ SwitchView::SwitchView(): View({ LayoutMode::Static, LayoutMode::Static }) {
 // MARK: - TextField
 
 TextFieldView::TextFieldView(std::string defaultText):
-    View({ LayoutMode::Flex, LayoutMode::Static }, MinSize({ 80, 32 })) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
+         MinSize({ 80, 32 })) {
     NSTextField* view =
         [NSTextField textFieldWithString:toNSString(defaultText)];
     view.bezelStyle = NSTextFieldRoundedBezel;
@@ -802,7 +815,8 @@ std::string TextFieldView::getText() const {
 // MARK: - LabelView
 
 LabelView::LabelView(std::string text):
-    View({ LayoutMode::Flex, LayoutMode::Static }, MinSize({ 80, 22 })) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
+         MinSize({ 80, 22 })) {
     NSTextField* field = [NSTextField labelWithString:toNSString(text)];
     setNativeHandle(retain(field));
 }
@@ -815,8 +829,8 @@ void LabelView::setText(std::string text) {
 // MARK: - ProgressIndicatorView
 
 ProgressIndicatorView::ProgressIndicatorView(Style style):
-    View({ style == Bar ? LayoutMode::Flex : LayoutMode::Static,
-           LayoutMode::Static }) {
+    View(PrivateViewKey, { style == Bar ? LayoutMode::Flex : LayoutMode::Static,
+                           LayoutMode::Static }) {
     NSProgressIndicator* view = [[NSProgressIndicator alloc] init];
     switch (style) {
     case Bar:
@@ -865,7 +879,7 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
 @end
 
 ColorView::ColorView(Color const& color):
-    View({ LayoutMode::Flex, LayoutMode::Flex }) {
+    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }) {
     FlatColorView* view =
         [[FlatColorView alloc] initWithColor:toNSColor(color)];
     setNativeHandle(retain(view));
@@ -882,7 +896,7 @@ void ColorView::doLayout(Rect frame) { setFrame(frame); }
 @end
 
 CustomView::CustomView(Vec2<LayoutMode> layoutMode):
-    AggregateView({}, layoutMode) {
+    View(PrivateViewKey, layoutMode) {
     AetherCustomView* native = [[AetherCustomView alloc] init];
     setNativeHandle(retain(native));
 }
