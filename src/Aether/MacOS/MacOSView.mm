@@ -120,9 +120,16 @@ struct EventTranslator {
         case EventType::MouseUpEvent:
             return make<MouseUpEvent>(&T::mouseButton, &T::window,
                                       &T::locationInWindow);
+        case EventType::MouseMoveEvent:
+            return make<MouseMoveEvent>(&T::window, &T::locationInWindow,
+                                        &T::delta);
         case EventType::MouseDragEvent:
             return make<MouseDragEvent>(&T::mouseButton, &T::window,
                                         &T::locationInWindow, &T::delta);
+        case EventType::MouseEnterEvent:
+            return make<MouseEnterEvent>(&T::window, &T::locationInWindow);
+        case EventType::MouseExitEvent:
+            return make<MouseExitEvent>(&T::window, &T::locationInWindow);
         default:
             assert(false);
         }
@@ -145,6 +152,9 @@ struct View::Impl {
 };
 
 @interface EventHandler: NSView
+@property MouseTrackingKind kind;
+@property MouseTrackingActivity activity;
+@property NSTrackingArea* trackingArea;
 @end
 @implementation EventHandler
 #define EVENT_TYPE_IMPL(Name, AppkitName)                                      \
@@ -157,7 +167,62 @@ struct View::Impl {
 EVENT_TYPE_IMPL(ScrollEvent, scrollWheel)
 EVENT_TYPE_IMPL(MouseDownEvent, mouseDown)
 EVENT_TYPE_IMPL(MouseUpEvent, mouseUp)
+EVENT_TYPE_IMPL(MouseMoveEvent, mouseMoved)
 EVENT_TYPE_IMPL(MouseDragEvent, mouseDragged)
+EVENT_TYPE_IMPL(MouseEnterEvent, mouseEntered)
+EVENT_TYPE_IMPL(MouseExitEvent, mouseExited)
+
+- (void)setFrame:(NSRect)frame {
+    bool eq = NSEqualRects(frame, self.frame);
+    [super setFrame:frame];
+    if (eq || !self.hasTrackingArea) {
+        return;
+    }
+    [self updateTrackingArea];
+}
+- (NSTrackingArea*)makeTrackingArea {
+    NSUInteger options = 0;
+    if (test(self.kind & MouseTrackingKind::Transition)) {
+        options |= NSTrackingMouseEnteredAndExited;
+    }
+    if (test(self.kind & MouseTrackingKind::Movement)) {
+        options |= NSTrackingMouseMoved;
+    }
+    switch (self.activity) {
+    case MouseTrackingActivity::ActiveWindow:
+        options |= NSTrackingActiveInKeyWindow;
+        break;
+    case MouseTrackingActivity::ActiveApp:
+        options |= NSTrackingActiveInActiveApp;
+        break;
+    case MouseTrackingActivity::Always:
+        options |= NSTrackingActiveAlways;
+        break;
+    }
+    return [[NSTrackingArea alloc] initWithRect:self.bounds
+                                        options:options
+                                          owner:self
+                                       userInfo:nil];
+}
+- (void)updateTrackingArea {
+    [self removeTrackingArea:self.trackingArea];
+    self.trackingArea = [self makeTrackingArea];
+    [self addTrackingArea:self.trackingArea];
+}
+- (BOOL)hasTrackingArea {
+    return !!self.trackingArea;
+}
+- (void)setHasTrackingArea:(BOOL)value {
+    if (value) {
+        if (!self.trackingArea) {
+            self.trackingArea = [self makeTrackingArea];
+        }
+    }
+    else {
+        [self removeTrackingArea:self.trackingArea];
+        self.trackingArea = nil;
+    }
+}
 
 @end
 
@@ -214,6 +279,20 @@ void View::installEventHandler(EventType type,
         return std::array { +makeImpl.template operator()<I>()... };
     }(std::make_index_sequence<csp::impl::IDTraits<EventType>::count>{})[(
         size_t)type](*this, handler);
+}
+
+static MouseTrackingActivity max(MouseTrackingActivity a,
+                                 MouseTrackingActivity b) {
+    return (MouseTrackingActivity)std::max((int)a, (int)b);
+}
+
+void View::trackMouseMovement(MouseTrackingKind kind,
+                              MouseTrackingActivity activity) {
+    EventHandler* eventHandler =
+        getOrInstallEventHandler(transfer(nativeHandle()));
+    eventHandler.kind |= kind;
+    eventHandler.activity = ::max(eventHandler.activity, activity);
+    [eventHandler updateTrackingArea];
 }
 
 bool View::setFrame(Rect frame) {

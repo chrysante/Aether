@@ -41,6 +41,18 @@ struct Sandbox: Application {
             std::cout << "Location: " << event.locationInWindow() << "\n";
             return false;
         };
+        auto moveHandler = [](MouseMoveEvent const&) {
+            std::cout << "." << std::flush;
+            return false;
+        };
+        auto transitionHandler = [](MouseTransitionEvent const& event) {
+            // clang-format off
+            csp::visit(event, csp::overload{
+                [](MouseEnterEvent const&) { std::cout << "Enter\n"; },
+                [](MouseExitEvent const&) { std::cout << "Exit\n"; }
+            }); // clang-format on
+            return false;
+        };
         window->setContentView(
             HSplit({
                 VSplit({
@@ -49,7 +61,11 @@ struct Sandbox: Application {
                     std::make_unique<ColorView>(Color::Green()) |
                         MinHeight(100) | SplitViewCollapsable |
                         OnEvent(scrollHandler),
-                    std::make_unique<ColorView>(Color::Blue()),
+                    std::make_unique<ColorView>(Color::Blue()) |
+                        OnEvent(transitionHandler, moveHandler) |
+                        TrackMouseMovement(MouseTrackingKind::Movement |
+                                               MouseTrackingKind::Transition,
+                                           MouseTrackingActivity::ActiveWindow),
                 }) | SplitterStyle::Thick |
                     MinWidth(120) | SplitViewCollapsable,
                 Sidebar() | OnEvent(scrollHandler) |

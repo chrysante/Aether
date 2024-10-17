@@ -13,6 +13,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
 CPMAddPackage("gh:chrysante/csp#0.0.1")
+CPMAddPackage("gh:chrysante/utility#main")
 
 include(cmake/Options.cmake)
 include(cmake/Aether.cmake)

@@ -150,13 +150,24 @@ constexpr auto AssignTo(WeakRef<V>& ref) {
     return [&](V& view) { ref = &view; };
 }
 
-template <typename F, typename E = EventHandlerEventType<F>>
-auto OnEvent(F&& f) {
+/// Installs event handlers to a view
+template <EventHandlerType... F>
+auto OnEvent(F&&... f) {
     return [=](View& view) {
-        view.installEventHandler(EventTypeToID<E>, [=](EventUnion const& e) {
-            return std::invoke(f, e.get<E>());
-        });
+        ([&] {
+            using E = EventHandlerEventType<F>;
+            view.installEventHandler(EventTypeToID<E>,
+                                     [=](EventUnion const& e) {
+                return std::invoke(f, e.get<E>());
+            });
+        }(), ...);
     };
+}
+
+/// Enables mouse tracking of a view
+inline auto TrackMouseMovement(MouseTrackingKind kind,
+                               MouseTrackingActivity activity) {
+    return [=](View& view) { view.trackMouseMovement(kind, activity); };
 }
 
 } // namespace xui

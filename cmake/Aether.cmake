@@ -49,7 +49,10 @@ target_include_directories(Aether
 )
 
 target_link_libraries(Aether
-    PUBLIC csp
-    PRIVATE range-v3
-    PRIVATE WarningFlags
+PUBLIC
+    csp
+    utility
+PRIVATE
+    range-v3
+    WarningFlags
 )

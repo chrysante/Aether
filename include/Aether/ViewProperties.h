@@ -1,6 +1,8 @@
 #ifndef AETHER_VIEWPROPERTIES_H
 #define AETHER_VIEWPROPERTIES_H
 
+#include <utl/common.hpp>
+
 namespace xui {
 
 enum class AlignX { Left, Center, Right };
@@ -18,6 +20,19 @@ enum class SplitViewResizeStrategy {
     CutBottom = CutMax,
     None,
     Default = Proportional
+};
+
+enum class MouseTrackingKind {
+    Transition = 1 << 0,
+    Movement = 1 << 1,
+};
+
+UTL_ENUM_OPERATORS(MouseTrackingKind)
+
+enum class MouseTrackingActivity {
+    ActiveWindow,
+    ActiveApp,
+    Always,
 };
 
 /// X-Macro definition of view attributes

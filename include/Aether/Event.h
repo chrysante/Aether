@@ -32,6 +32,7 @@ using NoParent = void;
 
 namespace xui {
 
+/// Base class of all events
 class Event: public csp::base_helper<Event> {
 public:
     EventType type() const { return get_rtti(*this); }
@@ -46,6 +47,7 @@ private:
     Window* _window;
 };
 
+/// Base class of all mouse events
 class MouseEvent: public Event {
 public:
     Vec2<double> locationInWindow() const { return _locationInWindow; }
@@ -59,6 +61,7 @@ private:
     Vec2<double> _locationInWindow;
 };
 
+/// Base class of `MouseDownEvent` and `MouseUpEvent`
 class MouseClickEvent: public MouseEvent {
 public:
     MouseButton mouseButton() const { return _button; }
@@ -72,6 +75,30 @@ private:
     MouseButton _button;
 };
 
+/// Base class of `MouseMoveEvent` and `MouseDragEvent`
+class MouseMotionEvent: public MouseEvent {
+public:
+    Vec2<double> delta() const { return _delta; }
+
+protected:
+    explicit MouseMotionEvent(EventType type, Window* window,
+                              Vec2<double> locationInWindow,
+                              Vec2<double> delta):
+        MouseEvent(type, window, locationInWindow), _delta(delta) {}
+
+private:
+    Vec2<double> _delta;
+};
+
+/// Base class of `MouseEnterEvent` and `MouseExitEvent`
+class MouseTransitionEvent: public MouseEvent {
+protected:
+    explicit MouseTransitionEvent(EventType type, Window* window,
+                                  Vec2<double> locationInWindow):
+        MouseEvent(type, window, locationInWindow) {}
+};
+
+/// Sent when the mouse is clicked down
 class MouseDownEvent: public MouseClickEvent {
 public:
     explicit MouseDownEvent(MouseButton button, Window* window,
@@ -80,6 +107,7 @@ public:
                         locationInWindow) {}
 };
 
+/// Sent when the mouse is released
 class MouseUpEvent: public MouseClickEvent {
 public:
     explicit MouseUpEvent(MouseButton button, Window* window,
@@ -88,21 +116,47 @@ public:
                         locationInWindow) {}
 };
 
-class MouseDragEvent: public MouseEvent {
+/// Sent when the mouse is moved. Requires the view or window to explicitly opt
+/// in to mouse tracking
+class MouseMoveEvent: public MouseMotionEvent {
+public:
+    explicit MouseMoveEvent(Window* window, Vec2<double> locationInWindow,
+                            Vec2<double> delta):
+        MouseMotionEvent(EventType::MouseMoveEvent, window, locationInWindow,
+                         delta) {}
+};
+
+/// Sent when the mouse is dragged
+class MouseDragEvent: public MouseMotionEvent {
 public:
     explicit MouseDragEvent(MouseButton button, Window* window,
                             Vec2<double> locationInWindow, Vec2<double> delta):
-        MouseEvent(EventType::MouseDragEvent, window, locationInWindow),
-        _button(button),
-        _delta(delta) {}
+        MouseMotionEvent(EventType::MouseDragEvent, window, locationInWindow,
+                         delta),
+        _button(button) {}
 
     MouseButton mouseButton() const { return _button; }
 
-    Vec2<double> delta() const { return _delta; }
-
 private:
     MouseButton _button;
-    Vec2<double> _delta;
+};
+
+/// Sent when the mouse enters a view or window. Requires the view or window to
+/// explicitly opt in to mouse tracking
+class MouseEnterEvent: public MouseTransitionEvent {
+public:
+    explicit MouseEnterEvent(Window* window, Vec2<double> locationInWindow):
+        MouseTransitionEvent(EventType ::MouseEnterEvent, window,
+                             locationInWindow) {}
+};
+
+/// Sent when the mouse exits a view or window. Requires the view or window to
+/// explicitly opt in to mouse tracking
+class MouseExitEvent: public MouseTransitionEvent {
+public:
+    explicit MouseExitEvent(Window* window, Vec2<double> locationInWindow):
+        MouseTransitionEvent(EventType::MouseExitEvent, window,
+                             locationInWindow) {}
 };
 
 enum class MomentumPhase {
@@ -115,6 +169,7 @@ enum class MomentumPhase {
     MayBegin,
 };
 
+/// Sent when the mouse is scrolled
 class ScrollEvent: public MouseEvent {
 public:
     explicit ScrollEvent(Window* window, Vec2<double> locationInWindow,
@@ -151,6 +206,11 @@ struct EventHandlerEventTypeImpl<F, std::function<R(E)>>:
 
 template <typename F>
 using EventHandlerEventType = typename EventHandlerEventTypeImpl<F>::type;
+
+template <typename F>
+concept EventHandlerType =
+    std::convertible_to<bool,
+                        std::invoke_result_t<F, EventHandlerEventType<F>>>;
 
 } // namespace xui
 

@@ -135,6 +135,9 @@ public:
     void installEventHandler(EventType type,
                              std::function<bool(EventUnion const&)> handler);
 
+    void trackMouseMovement(MouseTrackingKind kind,
+                            MouseTrackingActivity activity);
+
     struct Impl;
 
 protected:

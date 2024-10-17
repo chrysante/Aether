@@ -6,6 +6,8 @@ AETHER_EVENT_TYPE_DEF(Event, NoParent, Abstract)
 AETHER_EVENT_TYPE_DEF(MouseEvent, Event, Abstract)
 
 AETHER_EVENT_TYPE_DEF(MouseClickEvent, MouseEvent, Abstract)
+AETHER_EVENT_TYPE_DEF(MouseMotionEvent, MouseEvent, Abstract)
+AETHER_EVENT_TYPE_DEF(MouseTransitionEvent, MouseEvent, Abstract)
 
 #ifndef AETHER_CONCRETE_EVENT_TYPE_DEF
 #define AETHER_CONCRETE_EVENT_TYPE_DEF(...) AETHER_EVENT_TYPE_DEF(__VA_ARGS__)
@@ -13,7 +15,10 @@ AETHER_EVENT_TYPE_DEF(MouseClickEvent, MouseEvent, Abstract)
 
 AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDownEvent, MouseClickEvent, Concrete)
 AETHER_CONCRETE_EVENT_TYPE_DEF(MouseUpEvent, MouseClickEvent, Concrete)
-AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDragEvent, MouseEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseMoveEvent, MouseMotionEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDragEvent, MouseMotionEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseEnterEvent, MouseTransitionEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseExitEvent, MouseTransitionEvent, Concrete)
 AETHER_CONCRETE_EVENT_TYPE_DEF(ScrollEvent, MouseEvent, Concrete)
 
 #undef AETHER_CONCRETE_EVENT_TYPE_DEF
