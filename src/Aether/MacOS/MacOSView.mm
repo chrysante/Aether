@@ -111,23 +111,17 @@ struct View::Impl {
 - (void)scrollWheel:(NSEvent*)event {
     if (!View::Impl::handleEvent(EventType::ScrollEvent,
                                  *getView(self.superview), event))
-    {
         [super scrollWheel:event];
-    }
 }
 - (void)mouseDown:(NSEvent*)event {
     if (!View::Impl::handleEvent(EventType::MouseDownEvent,
                                  *getView(self.superview), event))
-    {
         [super mouseDown:event];
-    }
 }
 - (void)mouseUp:(NSEvent*)event {
     if (!View::Impl::handleEvent(EventType::MouseUpEvent,
                                  *getView(self.superview), event))
-    {
         [super mouseUp:event];
-    }
 }
 @end
 
@@ -148,10 +142,42 @@ static EventHandler* getOrInstallEventHandler(NSView* native) {
     return handler;
 }
 
+template <EventType ID, size_t Index = 0, auto... DerivedIDs>
+struct DerivedEventTypeListImpl:
+    std::conditional_t<csp::impl::IDIsConcrete<(EventType)Index> &&
+                           csp::impl::ctIsaImpl(ID, (EventType)Index),
+                       DerivedEventTypeListImpl<ID, Index + 1, DerivedIDs...,
+                                                (EventType)Index>,
+                       DerivedEventTypeListImpl<ID, Index + 1, DerivedIDs...>> {
+};
+
+template <EventType ID, auto... DerivedIDs>
+struct DerivedEventTypeListImpl<ID, csp::impl::IDTraits<EventType>::count,
+                                DerivedIDs...> {
+    static constexpr size_t Count = sizeof...(DerivedIDs);
+    static constexpr std::array<EventType, Count> value = { DerivedIDs... };
+};
+
+template <EventType ID>
+static constexpr auto DerivedEventTypeList =
+    DerivedEventTypeListImpl<ID>::value;
+
 void View::installEventHandler(EventType type,
                                std::function<bool(EventUnion const&)> handler) {
     (void)getOrInstallEventHandler(transfer(nativeHandle()));
-    _eventHandlers.insert_or_assign(type, std::move(handler));
+    [&]<size_t... I>(std::index_sequence<I...>) {
+        auto makeImpl = []<size_t J>() {
+            return [](View& view,
+                      std::function<bool(EventUnion const&)> const& handler) {
+                auto list = DerivedEventTypeList<(EventType)J>;
+                for (EventType ID: list) {
+                    view._eventHandlers.insert_or_assign(ID, handler);
+                }
+            };
+        };
+        return std::array { +makeImpl.template operator()<I>()... };
+    }(std::make_index_sequence<csp::impl::IDTraits<EventType>::count>{})[(
+        size_t)type](*this, handler);
 }
 
 bool View::setFrame(Rect frame) {
