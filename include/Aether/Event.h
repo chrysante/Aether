@@ -208,9 +208,7 @@ template <typename F>
 using EventHandlerEventType = typename EventHandlerEventTypeImpl<F>::type;
 
 template <typename F>
-concept EventHandlerType =
-    std::convertible_to<bool,
-                        std::invoke_result_t<F, EventHandlerEventType<F>>>;
+concept EventHandlerType = std::predicate<F, EventHandlerEventType<F>>;
 
 } // namespace xui
 

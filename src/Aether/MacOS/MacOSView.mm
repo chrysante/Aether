@@ -223,7 +223,9 @@ EVENT_TYPE_IMPL(MouseExitEvent, mouseExited)
         self.trackingArea = nil;
     }
 }
-
+- (BOOL)acceptsFirstMouse:(NSEvent*)event {
+    return YES;
+}
 @end
 
 static void const* const EventHandlerKey = &EventHandlerKey;
@@ -374,17 +376,14 @@ void ScrollView::setDocumentSize(Size size) {
     auto* This = ((AetherSplitView*)notification.object).This;
     This->didResizeSubviews();
 }
-
 - (void)splitView:(NSSplitView*)splitView
     resizeSubviewsWithOldSize:(NSSize)oldSize {
 }
-
 - (BOOL)splitView:(NSSplitView*)splitView canCollapseSubview:(NSView*)subview {
     auto* child = getView(subview);
     auto value = child->getAttribute<ViewAttributeKey::SplitViewCollapsable>();
     return value.value_or(false);
 }
-
 - (CGFloat)splitView:(NSSplitView*)splitView
     constrainSplitPosition:(CGFloat)proposedPosition
                ofSubviewAt:(NSInteger)dividerIndex {
@@ -400,10 +399,11 @@ SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
     AggregateView(std::move(children), { LayoutMode::Flex, LayoutMode::Flex }),
     axis(axis) {
     AetherSplitView* view = [[AetherSplitView alloc] init];
+    view.arrangesAllSubviews = NO;
     view.This = this;
     view.vertical = axis == Axis::X;
     for (auto& child: _children) {
-        [view addSubview:transfer(child->nativeHandle())];
+        [view addArrangedSubview:transfer(child->nativeHandle())];
     }
     setNativeHandle(retain(view));
     setSplitterStyle(_splitterStyle);
@@ -483,7 +483,6 @@ void SplitView::didResizeSubviews() {
     if (childFractions.empty()) {
         return;
     }
-    assert(childFractions.size() == view.subviews.count);
     auto frame = fromAppkitCoords(view.frame, view.superview.frame.size.height);
     double totalSize = sizeWithoutDividers();
     double fracSum = 0;
