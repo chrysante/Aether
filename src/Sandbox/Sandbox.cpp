@@ -6,9 +6,53 @@
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
+#include "CustomView.h"
+
 using namespace xui;
 
 namespace {
+
+class NodeView: public xui::CustomView {
+public:
+    NodeView(): CustomView({ LayoutMode::Static, LayoutMode::Static }) {
+        button1 = addSubview(Button("One"));
+        button2 = addSubview(Button("Two"));
+        setPreferredSize({ 200, 100 });
+    }
+
+private:
+    void doLayout(Rect frame) override {
+        setFrame(frame);
+        double cursor = 0;
+        button1->layout({ { 0, cursor }, button1->preferredSize() });
+        cursor += button1->preferredSize().height();
+        button2->layout({ { 0, cursor }, button2->preferredSize() });
+    }
+
+    WeakRef<View> button1, button2;
+};
+
+class NodeEditorView: public xui::CustomView {
+public:
+    NodeEditorView(): CustomView({ LayoutMode::Flex, LayoutMode::Flex }) {
+        node = addSubview(std::make_unique<NodeView>());
+        onEvent([this](ScrollEvent const& e) {
+            position += e.delta();
+            doLayout(frame());
+            //            requestLayout();
+            return true;
+        });
+    }
+
+private:
+    void doLayout(Rect frame) override {
+        setFrame(frame);
+        node->layout({ position, node->preferredSize() });
+    }
+
+    Vec2<double> position = {};
+    WeakRef<NodeView> node;
+};
 
 std::unique_ptr<View> LabelledSwitch(std::string label) {
     return HStack({ Label(std::move(label)) | AlignY::Center, Spacer(),
@@ -53,6 +97,13 @@ struct Sandbox: Application {
             }); // clang-format on
             return false;
         };
+
+        window->setContentView(HSplit({
+            VStack({ Button("A"), Button("B") }),
+            std::make_unique<NodeEditorView>(),
+        }));
+        return;
+
         window->setContentView(
             HSplit({
                 VSplit({

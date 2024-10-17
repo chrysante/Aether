@@ -50,6 +50,11 @@ static V* getView(NSView* view) {
     return dynamic_cast<V*>(getView(view));
 }
 
+void View::requestLayout() {
+    NSView* view = transfer(nativeHandle());
+    [view setNeedsLayout:true];
+}
+
 // MARK: - Events
 
 MouseButton toMouseButton(NSUInteger buttonNumber) {
@@ -308,6 +313,17 @@ bool View::setFrame(Rect frame) {
         eventHandler.frame = { {}, newFrame.size };
     }
     return !eq;
+}
+
+// MARK: - AggregateView
+
+View* AggregateView::addSubview(std::unique_ptr<View> view) {
+    NSView* native = transfer(nativeHandle());
+    if (NSView* nativeChild = transfer(view->nativeHandle())) {
+        [native addSubview:nativeChild];
+    }
+    _children.push_back(std::move(view));
+    return _children.back().get();
 }
 
 // MARK: - StackView
@@ -831,11 +847,11 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
     return self;
 }
 - (void)drawRect:(NSRect)dirtyRect {
-    [super drawRect:dirtyRect];
+    NSRect drawRect = NSIntersectionRect(dirtyRect, { {}, self.frame.size });
     [[NSColor blackColor] setFill];
-    NSRectFill(dirtyRect);
+    NSRectFill(drawRect);
     [self.color setFill];
-    NSRectFill(NSInsetRect(dirtyRect, 2, 2));
+    NSRectFill(NSInsetRect(drawRect, 2, 2));
     NSString* text = [NSString stringWithFormat:@"Width: %f\nHeight: %f",
                                                 self.frame.size.width,
                                                 self.frame.size.height];
@@ -843,7 +859,7 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
         NSFontAttributeName : [NSFont systemFontOfSize:12],
         NSForegroundColorAttributeName : [NSColor blackColor]
     };
-    NSRect textRect = NSInsetRect(dirtyRect, 15, 15);
+    NSRect textRect = NSInsetRect(drawRect, 15, 15);
     [text drawInRect:textRect withAttributes:attributes];
 }
 @end
@@ -856,3 +872,17 @@ ColorView::ColorView(Color const& color):
 }
 
 void ColorView::doLayout(Rect frame) { setFrame(frame); }
+
+@interface AetherCustomView: NSView
+@end
+@implementation AetherCustomView
+- (BOOL)clipsToBounds {
+    return YES;
+}
+@end
+
+CustomView::CustomView(Vec2<LayoutMode> layoutMode):
+    AggregateView({}, layoutMode) {
+    AetherCustomView* native = [[AetherCustomView alloc] init];
+    setNativeHandle(retain(native));
+}

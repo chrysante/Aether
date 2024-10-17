@@ -1,6 +1,7 @@
 add_executable(Sandbox MACOSX_BUNDLE)
 
-target_sources(Sandbox PRIVATE
+target_sources(Sandbox
+PRIVATE
     src/Sandbox/Sandbox.cpp
 )
 target_link_libraries(Sandbox

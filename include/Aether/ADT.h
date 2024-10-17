@@ -121,6 +121,13 @@ public:
     constexpr T const* end() const { return &data[N]; }
 
     static constexpr size_t size() { return N; }
+
+    constexpr Vec& operator+=(Vec const& rhs) { return *this = *this + rhs; }
+    constexpr Vec& operator-=(Vec const& rhs) { return *this = *this - rhs; }
+    constexpr Vec& operator*=(Vec const& rhs) { return *this = *this * rhs; }
+    constexpr Vec& operator*=(T const& rhs) { return *this = *this * rhs; }
+    constexpr Vec& operator/=(Vec const& rhs) { return *this = *this / rhs; }
+    constexpr Vec& operator/=(T const& rhs) { return *this = *this / rhs; }
 };
 
 template <typename T>
@@ -148,9 +155,30 @@ constexpr Vec<T, N> operator*(Vec<T, N> const& a, Vec<T, N> const& b) {
 }
 
 template <typename T, size_t N>
+constexpr Vec<T, N> operator*(Vec<T, N> const& a, T const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] * b)... };
+    }(std::make_index_sequence<N>());
+}
+
+template <typename T, size_t N>
+constexpr Vec<T, N> operator*(T const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a * b.data[I])... };
+    }(std::make_index_sequence<N>());
+}
+
+template <typename T, size_t N>
 constexpr Vec<T, N> operator/(Vec<T, N> const& a, Vec<T, N> const& b) {
     return [&]<size_t... I>(std::index_sequence<I...>) {
         return Vec<T, N>{ (a.data[I] / b.data[I])... };
+    }(std::make_index_sequence<N>());
+}
+
+template <typename T, size_t N>
+constexpr Vec<T, N> operator/(Vec<T, N> const& a, T const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return Vec<T, N>{ (a.data[I] / b)... };
     }(std::make_index_sequence<N>());
 }
 
@@ -209,6 +237,7 @@ constexpr T& get(Vec2<T>& v) {
 
 struct Position: Vec<double, 2> {
     using Vec::Vec;
+    Position(Vec2<double> v): Vec(v) {}
 };
 
 struct Size: Vec<double, 2> {

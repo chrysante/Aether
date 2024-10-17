@@ -132,8 +132,15 @@ public:
         }
     }
 
-    void installEventHandler(EventType type,
-                             std::function<bool(EventUnion const&)> handler);
+    template <EventHandlerType... F>
+    auto onEvent(F&&... f) {
+        ([&] {
+            using E = EventHandlerEventType<F>;
+            installEventHandler(EventTypeToID<E>, [=](EventUnion const& e) {
+                return std::invoke(f, e.get<E>());
+            });
+        }(), ...);
+    }
 
     void trackMouseMovement(MouseTrackingKind kind,
                             MouseTrackingActivity activity);
@@ -150,10 +157,14 @@ protected:
 
     virtual bool setFrame(Rect frame);
 
+    void requestLayout();
+
 private:
     friend class AggregateView; // To set _parent
     friend class TabView;       // To set _parent
 
+    void installEventHandler(EventType type,
+                             std::function<bool(EventUnion const&)> handler);
     void setAttributeImpl(ViewAttributeKey key, std::any value);
     void clearAttributeImpl(ViewAttributeKey key);
     std::any getAttributeImpl(ViewAttributeKey key) const;
@@ -186,6 +197,15 @@ protected:
                   detail::MinSize minSize = detail::MinSize(),
                   detail::PrefSize prefSize = detail::PrefSize(),
                   detail::MaxSize maxSize = detail::MaxSize());
+
+protected:
+    View* addSubview(std::unique_ptr<View> view);
+
+    template <std::derived_from<View> V>
+    V* addSubview(std::unique_ptr<V> view) {
+        return static_cast<V*>(
+            addSubview(std::unique_ptr<View>(view.release())));
+    }
 
 protected:
     std::vector<std::unique_ptr<View>> _children;
@@ -525,6 +545,12 @@ public:
 
 private:
     void doLayout(Rect frame) override;
+};
+
+///
+class CustomView: public AggregateView {
+protected:
+    explicit CustomView(Vec2<LayoutMode> layoutMode);
 };
 
 } // namespace xui
