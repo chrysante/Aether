@@ -179,6 +179,11 @@ public:
     }
 
 protected:
+    View(Vec2<LayoutMode> layoutMode,
+         detail::MinSize minSize = detail::MinSize(),
+         detail::PrefSize prefSize = detail::PrefSize(),
+         detail::MaxSize maxSize = detail::MaxSize());
+
     View(detail::PrivateViewKeyT, Vec2<LayoutMode> layoutMode,
          detail::MinSize minSize = detail::MinSize(),
          detail::PrefSize prefSize = detail::PrefSize(),
@@ -569,12 +574,6 @@ public:
 
 private:
     void doLayout(Rect frame) override;
-};
-
-///
-class CustomView: public View {
-protected:
-    explicit CustomView(Vec2<LayoutMode> layoutMode);
 };
 
 } // namespace xui

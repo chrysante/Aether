@@ -887,6 +887,8 @@ ColorView::ColorView(Color const& color):
 
 void ColorView::doLayout(Rect frame) { setFrame(frame); }
 
+// MARK: - Custom view
+
 @interface AetherCustomView: NSView
 @end
 @implementation AetherCustomView
@@ -895,8 +897,9 @@ void ColorView::doLayout(Rect frame) { setFrame(frame); }
 }
 @end
 
-CustomView::CustomView(Vec2<LayoutMode> layoutMode):
-    View(PrivateViewKey, layoutMode) {
+View::View(Vec2<LayoutMode> layoutMode, detail::MinSize minSize,
+           detail::PrefSize prefSize, detail::MaxSize maxSize):
+    View(PrivateViewKey, layoutMode, minSize, prefSize, maxSize) {
     AetherCustomView* native = [[AetherCustomView alloc] init];
     setNativeHandle(retain(native));
 }

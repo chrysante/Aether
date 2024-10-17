@@ -10,9 +10,9 @@ using namespace xui;
 
 namespace {
 
-class NodeView: public xui::CustomView {
+class NodeView: public View {
 public:
-    NodeView(): CustomView({ LayoutMode::Static, LayoutMode::Static }) {
+    NodeView(): View({ LayoutMode::Static, LayoutMode::Static }) {
         button1 = addSubview(Button("One"));
         button2 = addSubview(Button("Two"));
         setPreferredSize({ 200, 100 });
@@ -30,14 +30,14 @@ private:
     WeakRef<View> button1, button2;
 };
 
-class NodeEditorView: public xui::CustomView {
+class NodeEditorView: public View {
 public:
-    NodeEditorView(): CustomView({ LayoutMode::Flex, LayoutMode::Flex }) {
+    NodeEditorView(): View({ LayoutMode::Flex, LayoutMode::Flex }) {
         node = addSubview(std::make_unique<NodeView>());
         onEvent([this](ScrollEvent const& e) {
             position += e.delta();
             doLayout(frame());
-            //            requestLayout();
+            // requestLayout();
             return true;
         });
     }
@@ -96,11 +96,11 @@ struct Sandbox: Application {
             return false;
         };
 
-        // window->setContentView(HSplit({
-        //     VStack({ Button("A"), Button("B") }),
-        //     std::make_unique<NodeEditorView>(),
-        // }));
-        // return;
+        window->setContentView(HSplit({
+            VStack({ Button("A"), Button("B") }),
+            std::make_unique<NodeEditorView>(),
+        }));
+        return;
 
         window->setContentView(
             HSplit({
