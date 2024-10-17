@@ -13,6 +13,7 @@ AETHER_EVENT_TYPE_DEF(MouseClickEvent, MouseEvent, Abstract)
 
 AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDownEvent, MouseClickEvent, Concrete)
 AETHER_CONCRETE_EVENT_TYPE_DEF(MouseUpEvent, MouseClickEvent, Concrete)
+AETHER_CONCRETE_EVENT_TYPE_DEF(MouseDragEvent, MouseEvent, Concrete)
 AETHER_CONCRETE_EVENT_TYPE_DEF(ScrollEvent, MouseEvent, Concrete)
 
 #undef AETHER_CONCRETE_EVENT_TYPE_DEF

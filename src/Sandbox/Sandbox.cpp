@@ -32,6 +32,11 @@ struct Sandbox: Application {
             std::cout << "Delta:    " << event.delta() << "\n";
             return false;
         };
+        auto dragHandler = [](MouseDragEvent const& event) {
+            std::cout << "Location: " << event.locationInWindow() << "\n";
+            std::cout << "Delta:    " << event.delta() << "\n";
+            return false;
+        };
         auto mouseClickHandler = [](MouseClickEvent const& event) {
             std::cout << "Location: " << event.locationInWindow() << "\n";
             return false;
@@ -40,7 +45,7 @@ struct Sandbox: Application {
             HSplit({
                 VSplit({
                     std::make_unique<ColorView>(Color::Red()) |
-                        OnEvent(mouseClickHandler),
+                        OnEvent(mouseClickHandler) | OnEvent(dragHandler),
                     std::make_unique<ColorView>(Color::Green()) |
                         MinHeight(100) | SplitViewCollapsable |
                         OnEvent(scrollHandler),

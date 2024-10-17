@@ -161,7 +161,7 @@ std::basic_ostream<CharT, TraitsT>& operator<<(
     for (bool first = true; auto& value: v) {
         str << (first ? ((void)(first = false), "") : ", ") << value;
     }
-    return str;
+    return str << ")";
 }
 
 namespace detail {

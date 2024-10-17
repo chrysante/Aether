@@ -52,6 +52,12 @@ static V* getView(NSView* view) {
 
 // MARK: - Events
 
+MouseButton toMouseButton(NSUInteger buttonNumber) {
+    assert(buttonNumber <= 2);
+    using enum MouseButton;
+    return std::array{ Left, Right, Other }[buttonNumber];
+}
+
 MomentumPhase fromNS(NSEventPhase phase) {
     switch (phase) {
     case NSEventPhaseNone:
@@ -72,6 +78,59 @@ MomentumPhase fromNS(NSEventPhase phase) {
     return MomentumPhase::None;
 }
 
+namespace {
+
+struct EventTranslator {
+    View& view;
+    NSEvent* __weak event;
+
+    xui::Window* window() const { return nullptr; };
+
+    Vec2<double> locationInWindow() const {
+        return fromAppkitCoords(event.locationInWindow,
+                                event.window.frame.size.height);
+    };
+
+    Vec2<double> delta() const { return { event.deltaX, event.deltaY }; };
+
+    Vec2<double> scrollingDelta() const {
+        return { event.scrollingDeltaX, event.scrollingDeltaY };
+    };
+
+    MouseButton mouseButton() const {
+        return toMouseButton(event.buttonNumber);
+    };
+
+    MomentumPhase momentum() const { return fromNS(event.momentumPhase); };
+
+    template <typename E>
+    E make(auto... args) {
+        return E((this->*args)()...);
+    }
+
+    EventUnion to(EventType type) {
+        using T = EventTranslator;
+        switch (type) {
+        case EventType::ScrollEvent:
+            return make<ScrollEvent>(&T::window, &T::locationInWindow,
+                                     &T::scrollingDelta, &T::momentum);
+        case EventType::MouseDownEvent:
+            return make<MouseDownEvent>(&T::mouseButton, &T::window,
+                                        &T::locationInWindow);
+        case EventType::MouseUpEvent:
+            return make<MouseUpEvent>(&T::mouseButton, &T::window,
+                                      &T::locationInWindow);
+        case EventType::MouseDragEvent:
+            return make<MouseDragEvent>(&T::mouseButton, &T::window,
+                                        &T::locationInWindow, &T::delta);
+        default:
+            assert(false);
+        }
+    }
+};
+
+} // namespace
+
 struct View::Impl {
     static auto* getHandler(View& view, EventType type) {
         auto itr = view._eventHandlers.find(type);
@@ -81,48 +140,25 @@ struct View::Impl {
     static bool handleEvent(EventType type, View& view, NSEvent __weak* event) {
         auto* handler = getHandler(view, type);
         if (!handler) return false;
-        switch (type) {
-        case EventType::ScrollEvent:
-            return (*handler)(
-                ScrollEvent(nullptr,
-                            fromAppkitCoords(event.locationInWindow,
-                                             event.window.frame.size.height),
-                            { event.scrollingDeltaX, event.scrollingDeltaY },
-                            fromNS(event.momentumPhase)));
-        case EventType::MouseDownEvent:
-            return (*handler)(
-                MouseDownEvent(nullptr, fromAppkitCoords(event.locationInWindow,
-                                                         event.window.frame.size
-                                                             .height)));
-        case EventType::MouseUpEvent:
-            return (*handler)(
-                MouseUpEvent(nullptr,
-                             fromAppkitCoords(event.locationInWindow,
-                                              event.window.frame.size.height)));
-        default:
-            return false;
-        }
+        return (*handler)(EventTranslator{ view, event }.to(type));
     }
 };
 
 @interface EventHandler: NSView
 @end
 @implementation EventHandler
-- (void)scrollWheel:(NSEvent*)event {
-    if (!View::Impl::handleEvent(EventType::ScrollEvent,
-                                 *getView(self.superview), event))
-        [super scrollWheel:event];
-}
-- (void)mouseDown:(NSEvent*)event {
-    if (!View::Impl::handleEvent(EventType::MouseDownEvent,
-                                 *getView(self.superview), event))
-        [super mouseDown:event];
-}
-- (void)mouseUp:(NSEvent*)event {
-    if (!View::Impl::handleEvent(EventType::MouseUpEvent,
-                                 *getView(self.superview), event))
-        [super mouseUp:event];
-}
+#define EVENT_TYPE_IMPL(Name, AppkitName)                                      \
+    -(void)AppkitName: (NSEvent*)event {                                       \
+        if (!View::Impl::handleEvent(EventType::Name,                          \
+                                     *getView(self.superview), event))         \
+            [super AppkitName:event];                                          \
+    }
+
+EVENT_TYPE_IMPL(ScrollEvent, scrollWheel)
+EVENT_TYPE_IMPL(MouseDownEvent, mouseDown)
+EVENT_TYPE_IMPL(MouseUpEvent, mouseUp)
+EVENT_TYPE_IMPL(MouseDragEvent, mouseDragged)
+
 @end
 
 static void const* const EventHandlerKey = &EventHandlerKey;
