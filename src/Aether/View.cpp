@@ -237,6 +237,14 @@ void ScrollView::doLayout(Rect frame) {
     });
 }
 
+bool ScrollView::setFrame(Rect frame) {
+    if (View::setFrame(frame)) {
+        setDocumentSize(frame.size());
+        return true;
+    }
+    return false;
+}
+
 std::unique_ptr<ScrollView> xui::VScrollView(UniqueVector<View> children) {
     return std::make_unique<ScrollView>(Axis::Y, std::move(children));
 }
@@ -256,6 +264,8 @@ std::unique_ptr<SplitView> xui::VSplit(UniqueVector<View> children) {
 std::unique_ptr<TabView> xui::Tab(MoveOnlyVector<TabViewElement> elements) {
     return std::make_unique<TabView>(std::move(elements));
 }
+
+void ButtonView::doLayout(Rect rect) { setFrame(rect); }
 
 std::unique_ptr<ButtonView> xui::Button(std::string label,
                                         std::function<void()> action) {
@@ -281,6 +291,10 @@ std::unique_ptr<ButtonView> xui::RadioButton(std::string label,
                                         ButtonType::Radio);
 }
 
+void SwitchView::doLayout(Rect frame) { setFrame(frame); }
+
+void ProgressIndicatorView::doLayout(Rect frame) { setFrame(frame); }
+
 std::unique_ptr<ProgressIndicatorView> xui::ProgressBar() {
     return std::make_unique<ProgressIndicatorView>(ProgressIndicatorView::Bar);
 }
@@ -290,9 +304,13 @@ std::unique_ptr<ProgressIndicatorView> xui::ProgressSpinner() {
         ProgressIndicatorView::Spinner);
 }
 
+void TextFieldView::doLayout(Rect frame) { setFrame(frame); }
+
 std::unique_ptr<TextFieldView> xui::TextField(std::string defaultText) {
     return std::make_unique<TextFieldView>(std::move(defaultText));
 }
+
+void LabelView::doLayout(Rect frame) { setFrame(frame); }
 
 std::unique_ptr<LabelView> xui::Label(std::string text) {
     return std::make_unique<LabelView>(text);

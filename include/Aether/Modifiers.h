@@ -150,6 +150,15 @@ constexpr auto AssignTo(WeakRef<V>& ref) {
     return [&](V& view) { ref = &view; };
 }
 
+template <typename F, typename E = EventHandlerEventType<F>>
+auto OnEvent(F&& f) {
+    return [=](View& view) {
+        view.installEventHandler(EventTypeToID<E>, [=](EventUnion const& e) {
+            return std::invoke(f, e.get<E>());
+        });
+    };
+}
+
 } // namespace xui
 
 #endif // AETHER_MODIFIERS_H

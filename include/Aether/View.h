@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <Aether/ADT.h>
+#include <Aether/Event.h>
 #include <Aether/ViewProperties.h>
 
 namespace xui {
@@ -131,6 +132,11 @@ public:
         }
     }
 
+    void installEventHandler(EventType type,
+                             std::function<bool(EventUnion const&)> handler);
+
+    struct Impl;
+
 protected:
     View(Vec2<LayoutMode> layoutMode,
          detail::MinSize minSize = detail::MinSize(),
@@ -138,6 +144,8 @@ protected:
          detail::MaxSize maxSize = detail::MaxSize());
 
     void setNativeHandle(void* handle);
+
+    virtual bool setFrame(Rect frame);
 
 private:
     friend class AggregateView; // To set _parent
@@ -154,6 +162,8 @@ private:
     Vec2<LayoutMode> _layoutMode;
     Size _minSize, _maxSize, _prefSize;
     std::unordered_map<ViewAttributeKey, std::any> _attribMap;
+    std::unordered_map<EventType, std::function<bool(EventUnion const&)>>
+        _eventHandlers;
 };
 
 class SpacerView: public View {
@@ -185,7 +195,6 @@ public:
 
 private:
     void doLayout(Rect frame) override;
-    void setFrame(Rect frame);
 
     Axis axis;
 };
@@ -238,7 +247,7 @@ public:
 
 private:
     void doLayout(Rect frame) override;
-    void setFrame(Rect frame);
+    bool setFrame(Rect frame) override;
     void setDocumentSize(Size size);
 
     Axis axis;

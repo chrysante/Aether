@@ -50,6 +50,64 @@ static V* getView(NSView* view) {
     return dynamic_cast<V*>(getView(view));
 }
 
+// MARK: - Events
+
+struct View::Impl {
+    static bool handleScrollWheel(View& view, NSEvent __weak* event) {
+        auto itr = view._eventHandlers.find(EventType::ScrollEvent);
+        if (itr != view._eventHandlers.end()) {
+            return itr->second(ScrollEvent{});
+        }
+        return false;
+    }
+};
+
+@interface EventHandler: NSView
+@end
+@implementation EventHandler
+- (void)scrollWheel:(NSEvent*)event {
+    if (!View::Impl::handleScrollWheel(*getView(self.superview), event)) {
+        [super scrollWheel:event];
+    }
+}
+@end
+
+static void const* const EventHandlerKey = &EventHandlerKey;
+
+static EventHandler* getEventHandler(NSView* native) {
+    return objc_getAssociatedObject(native, EventHandlerKey);
+}
+
+static EventHandler* getOrInstallEventHandler(NSView* native) {
+    if (EventHandler* handler = getEventHandler(native)) {
+        return handler;
+    }
+    EventHandler* handler = [[EventHandler alloc] init];
+    [native addSubview:handler];
+    objc_setAssociatedObject(native, EventHandlerKey, handler,
+                             OBJC_ASSOCIATION_RETAIN);
+    return handler;
+}
+
+void View::installEventHandler(EventType type,
+                               std::function<bool(EventUnion const&)> handler) {
+    (void)getOrInstallEventHandler(transfer(nativeHandle()));
+    _eventHandlers.insert_or_assign(type, std::move(handler));
+}
+
+bool View::setFrame(Rect frame) {
+    NSView* view = transfer(nativeHandle());
+    NSRect newFrame = toAppkitCoords(frame, view.superview.frame.size.height);
+    bool eq = NSEqualRects(view.frame, newFrame);
+    if (!eq) {
+        view.frame = newFrame;
+    }
+    if (EventHandler* eventHandler = getEventHandler(view)) {
+        eventHandler.frame = { {}, newFrame.size };
+    }
+    return !eq;
+}
+
 // MARK: - StackView
 
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
@@ -61,11 +119,6 @@ StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
         [view addSubview:childView];
     }
     setNativeHandle(retain(view));
-}
-
-void StackView::setFrame(Rect frame) {
-    NSView* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
 // MARK: - ScrollView
@@ -83,12 +136,6 @@ ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
     VScrollView.hasHorizontalScroller = axis == Axis::X;
     VScrollView.hasVerticalScroller = axis == Axis::Y;
     setNativeHandle(retain(VScrollView));
-}
-
-void ScrollView::setFrame(Rect frame) {
-    NSScrollView* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
-    view.documentView.frame = { {}, view.frame.size };
 }
 
 void ScrollView::setDocumentSize(Size size) {
@@ -285,13 +332,8 @@ double SplitView::constrainSplitPosition(double proposedPosition,
 void SplitView::doLayout(Rect frame) {
     NSSplitView* view = transfer(nativeHandle());
     double dividerThickness = view.dividerThickness;
-    auto newFrame = toAppkitCoords(frame, view.superview.frame.size.height);
-    if (!NSEqualRects(view.frame, newFrame)) {
-        view.frame = newFrame;
-        // We return because [view setFrame:] recurses into us
-        if (!childFractions.empty()) {
-            return;
-        }
+    if (setFrame(frame) && !childFractions.empty()) {
+        return;
     }
     double totalSize = sizeWithoutDividers();
     if (childFractions.empty()) {
@@ -379,12 +421,12 @@ void TabView::setBorder(TabViewBorder border) {
 }
 
 void TabView::doLayout(Rect frame) {
-    NSTabView* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
+    setFrame(frame);
     if (elements.empty()) {
         return;
     }
-    NSView* selected = view.selectedTabViewItem.view;
+    NSTabView* native = transfer(nativeHandle());
+    NSView* selected = native.selectedTabViewItem.view;
     auto childFrame = fromAppkitCoords(selected.frame, frame.height());
     for (auto& [title, child]: elements) {
         child->layout(childFrame);
@@ -512,22 +554,12 @@ void ButtonView::setLabel(std::string label) {
     [button setTitle:makeButtonTitle(_label, buttonType(), bezelStyle())];
 }
 
-void ButtonView::doLayout(Rect rect) {
-    NSButton* button = transfer(nativeHandle());
-    button.frame = toAppkitCoords(rect, button.superview.frame.size.height);
-}
-
 // MARK: - Switch
 
 SwitchView::SwitchView(): View({ LayoutMode::Static, LayoutMode::Static }) {
     NSSwitch* view = [[NSSwitch alloc] init];
     setNativeHandle(retain(view));
     setMinSize(fromNSSize(view.intrinsicContentSize));
-}
-
-void SwitchView::doLayout(Rect frame) {
-    NSSwitch* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
 // MARK: - TextField
@@ -552,11 +584,6 @@ std::string TextFieldView::getText() const {
     return toStdString([field stringValue]);
 }
 
-void TextFieldView::doLayout(Rect frame) {
-    NSView* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
-}
-
 // MARK: - LabelView
 
 LabelView::LabelView(std::string text):
@@ -568,11 +595,6 @@ LabelView::LabelView(std::string text):
 void LabelView::setText(std::string text) {
     NSTextField* field = transfer(nativeHandle());
     field.stringValue = toNSString(text);
-}
-
-void LabelView::doLayout(Rect frame) {
-    NSTextField* field = transfer(nativeHandle());
-    field.frame = toAppkitCoords(frame, field.superview.frame.size.height);
 }
 
 // MARK: - ProgressIndicatorView
@@ -593,11 +615,6 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
     }
     [view startAnimation:nil];
     setNativeHandle(retain(view));
-}
-
-void ProgressIndicatorView::doLayout(Rect frame) {
-    NSProgressIndicator* view = (NSProgressIndicator*)transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
 }
 
 // MARK: - ColorView
@@ -639,7 +656,4 @@ ColorView::ColorView(Color const& color):
     setNativeHandle(retain(view));
 }
 
-void ColorView::doLayout(Rect frame) {
-    NSView* view = transfer(nativeHandle());
-    view.frame = toAppkitCoords(frame, view.superview.frame.size.height);
-}
+void ColorView::doLayout(Rect frame) { setFrame(frame); }

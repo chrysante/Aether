@@ -27,7 +27,10 @@ struct Sandbox: Application {
             Button("Hello 3", [] { std::cout << "Hello 3\n"; }) |
                 BezelStyle::Badge,
         }));
-
+        auto eventHandler = [](ScrollEvent) {
+            std::cout << "Got Event\n";
+            return false;
+        };
         window->setContentView(
             HSplit({
                 VSplit({
@@ -37,7 +40,7 @@ struct Sandbox: Application {
                     std::make_unique<ColorView>(Color::Blue()),
                 }) | SplitterStyle::Thick |
                     MinWidth(120) | SplitViewCollapsable,
-                Sidebar() | SplitViewCollapsable(false),
+                Sidebar() | OnEvent(eventHandler) | SplitViewCollapsable(false),
                 DetailPanel() | MinWidth(150) | SplitViewCollapsable,
                 std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
             }) |

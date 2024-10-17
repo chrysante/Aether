@@ -11,6 +11,8 @@ set(SOURCE_FILES
 set(HEADER_FILES
     include/Aether/ADT.h
     include/Aether/Application.h
+    include/Aether/Event.h
+    include/Aether/Event.def
     include/Aether/Modifiers.h
     include/Aether/Toolbar.h
     include/Aether/View.h
