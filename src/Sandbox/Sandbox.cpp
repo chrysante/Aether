@@ -12,44 +12,69 @@ namespace {
 
 class NodeView: public View {
 public:
-    NodeView(): View({ LayoutMode::Static, LayoutMode::Static }) {
-        button1 = addSubview(Button("One"));
-        button2 = addSubview(Button("Two"));
+    explicit NodeView(Vec2<double> pos):
+        View({ LayoutMode::Static, LayoutMode::Static }), pos(pos) {
+        stack = addSubview(VStack({
+            Button("One", [] { std::cout << "One\n"; }),
+            Button("Two", [] { std::cout << "Two\n"; }),
+        }));
         setPreferredSize({ 200, 100 });
+        // onEvent([this](MouseDragEvent const& e) {
+        //     this->pos += e.delta();
+        //     parent()->layout(parent()->frame());
+        //     return true;
+        // });
+        onEvent([](MouseDownEvent const&) {
+            std::cout << "Down\n";
+            return true;
+        });
+        onEvent([](MouseUpEvent const&) {
+            std::cout << "Up\n";
+            return true;
+        });
     }
+
+    Vec2<double> position() const { return pos; }
 
 private:
-    void doLayout(Rect frame) override {
+    void doLayout(xui::Rect frame) override {
         setFrame(frame);
-        double cursor = 0;
-        button1->layout({ { 0, cursor }, button1->preferredSize() });
-        cursor += button1->preferredSize().height();
-        button2->layout({ { 0, cursor }, button2->preferredSize() });
+        stack->layout({ {}, frame.size() });
     }
 
-    WeakRef<View> button1, button2;
+    WeakRef<View> stack;
+    Vec2<double> pos = {};
 };
 
 class NodeEditorView: public View {
 public:
     NodeEditorView(): View({ LayoutMode::Flex, LayoutMode::Flex }) {
-        node = addSubview(std::make_unique<NodeView>());
-        onEvent([this](ScrollEvent const& e) {
-            position += e.delta();
-            doLayout(frame());
-            // requestLayout();
-            return true;
+        addSubview(std::make_unique<NodeView>(Vec2<double>{ 0, 0 }));
+        // addSubview(std::make_unique<NodeView>(Vec2<double>{ 100, 300 }));
+        // onEvent([this](ScrollEvent const& e) {
+        //     position += e.delta();
+        //     doLayout(frame());
+        //     // requestLayout();
+        //     return true;
+        // });
+        onEvent([](MouseUpEvent const&) {
+            std::cout << "NEV: Up\n";
+            return false;
         });
     }
 
 private:
     void doLayout(Rect frame) override {
         setFrame(frame);
-        node->layout({ position, node->preferredSize() });
+        for (auto* view: subviews()) {
+            if (auto* node = dynamic_cast<NodeView*>(view)) {
+                node->layout(
+                    { position + node->position(), node->preferredSize() });
+            }
+        }
     }
 
     Vec2<double> position = {};
-    WeakRef<NodeView> node;
 };
 
 std::unique_ptr<View> LabelledSwitch(std::string label) {
@@ -60,6 +85,13 @@ std::unique_ptr<View> LabelledSwitch(std::string label) {
 
 struct Sandbox: Application {
     Sandbox() {
+        createWindow();
+        // window->setContentView(OtherTestView());
+        window->setContentView(makeNodeEditor());
+        // window->setContentView(TestView());
+    }
+
+    void createWindow() {
         window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
         window->setToolbar(Toolbar({
             Button("Hello 1", [] { std::cout << "Hello 1\n"; }) |
@@ -69,6 +101,29 @@ struct Sandbox: Application {
             Button("Hello 3", [] { std::cout << "Hello 3\n"; }) |
                 BezelStyle::Badge,
         }));
+    }
+
+    std::unique_ptr<View> makeNodeEditor() {
+        return HStack({
+            VStack({ Button("A"), Button("B") }),
+            std::make_unique<NodeEditorView>(),
+        });
+    }
+
+    std::unique_ptr<View> OtherTestView() {
+        return VSplit({
+            HStack({}),
+            HStack({}) | OnEvent([](MouseDownEvent const&) {
+            std::cout << "Down\n";
+            return false;
+        }) | OnEvent([](MouseUpEvent const&) {
+            std::cout << "Up\n";
+            return false;
+        }),
+        });
+    }
+
+    std::unique_ptr<View> TestView() {
         auto scrollHandler = [](ScrollEvent const& event) {
             std::cout << "Location: " << event.locationInWindow() << "\n";
             std::cout << "Delta:    " << event.delta() << "\n";
@@ -95,34 +150,27 @@ struct Sandbox: Application {
             }); // clang-format on
             return false;
         };
-
-        window->setContentView(HSplit({
-            VStack({ Button("A"), Button("B") }),
-            std::make_unique<NodeEditorView>(),
-        }));
-        return;
-
-        window->setContentView(
-            HSplit({
-                VSplit({
-                    std::make_unique<ColorView>(Color::Red()) |
-                        OnEvent(mouseClickHandler) | OnEvent(dragHandler),
-                    std::make_unique<ColorView>(Color::Green()) |
-                        MinHeight(100) | SplitViewCollapsable |
-                        OnEvent(scrollHandler),
-                    std::make_unique<ColorView>(Color::Blue()) |
-                        OnEvent(transitionHandler, moveHandler) |
-                        TrackMouseMovement(MouseTrackingKind::Movement |
-                                               MouseTrackingKind::Transition,
-                                           MouseTrackingActivity::ActiveWindow),
-                }) | SplitterStyle::Thick |
-                    MinWidth(120) | SplitViewCollapsable,
-                Sidebar() | OnEvent(scrollHandler) |
-                    SplitViewCollapsable(false),
-                DetailPanel() | MinWidth(150) | SplitViewCollapsable,
-                std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
-            }) |
-            SplitViewResizeStrategy::Proportional | AssignTo(splitView));
+        return HSplit({
+                   VSplit({
+                       std::make_unique<ColorView>(Color::Red()) |
+                           OnEvent(mouseClickHandler) | OnEvent(dragHandler),
+                       std::make_unique<ColorView>(Color::Green()) |
+                           MinHeight(100) | SplitViewCollapsable |
+                           OnEvent(scrollHandler),
+                       std::make_unique<ColorView>(Color::Blue()) |
+                           OnEvent(transitionHandler, moveHandler) |
+                           TrackMouseMovement(
+                               MouseTrackingKind::Movement |
+                                   MouseTrackingKind::Transition,
+                               MouseTrackingActivity::ActiveWindow),
+                   }) | SplitterStyle::Thick |
+                       MinWidth(120) | SplitViewCollapsable,
+                   Sidebar() | OnEvent(scrollHandler) |
+                       SplitViewCollapsable(false),
+                   DetailPanel() | MinWidth(150) | SplitViewCollapsable,
+                   std::make_unique<ColorView>(Color::Red()) | MinWidth(100),
+               }) |
+               SplitViewResizeStrategy::Proportional | AssignTo(splitView);
     }
 
     std::unique_ptr<View> Sidebar() {

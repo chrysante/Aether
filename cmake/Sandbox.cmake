@@ -6,7 +6,7 @@ PRIVATE
 )
 target_link_libraries(Sandbox
     PRIVATE Aether
-    PRIVATE WarningFlags
+    PRIVATE WarningFlags Sanitizers
 )
 
 set(EXECUTABLE_NAME "Sandbox")

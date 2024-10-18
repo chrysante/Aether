@@ -55,4 +55,5 @@ PUBLIC
 PRIVATE
     range-v3
     WarningFlags
+    Sanitizers
 )

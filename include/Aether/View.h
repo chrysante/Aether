@@ -162,8 +162,6 @@ public:
     void trackMouseMovement(MouseTrackingKind kind,
                             MouseTrackingActivity activity);
 
-    struct Impl;
-
     auto subviews() { return _subviews | std::views::transform(detail::Get); }
     auto subviews() const {
         return _subviews | std::views::transform(detail::Get);
@@ -177,6 +175,9 @@ public:
         assert(index < numSubviews());
         return _subviews[index].get();
     }
+
+    struct EventImpl;
+    struct CustomImpl;
 
 protected:
     View(Vec2<LayoutMode> layoutMode,
@@ -218,7 +219,9 @@ private:
     void clearAttributeImpl(ViewAttributeKey key);
     std::any getAttributeImpl(ViewAttributeKey key) const;
 
-    virtual void doLayout(Rect rect) = 0;
+    virtual void doLayout(Rect frame) = 0;
+
+    virtual void draw(Rect) {}
 
     View* _parent = nullptr;
     void* _nativeHandle = nullptr;

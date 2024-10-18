@@ -122,7 +122,7 @@ struct EventTranslator {
     MomentumPhase momentum() const { return fromNS(event.momentumPhase); };
 
     template <typename E>
-    E make(auto... args) {
+    E make(auto... args) const {
         return E((this->*args)()...);
     }
 
@@ -156,12 +156,11 @@ struct EventTranslator {
 
 } // namespace
 
-struct View::Impl {
+struct View::EventImpl {
     static auto* getHandler(View& view, EventType type) {
         auto itr = view._eventHandlers.find(type);
         return itr != view._eventHandlers.end() ? &itr->second : nullptr;
     }
-
     static bool handleEvent(EventType type, View& view, NSEvent __weak* event) {
         auto* handler = getHandler(view, type);
         if (!handler) return false;
@@ -177,8 +176,8 @@ struct View::Impl {
 @implementation EventHandler
 #define EVENT_TYPE_IMPL(Name, AppkitName)                                      \
     -(void)AppkitName: (NSEvent*)event {                                       \
-        if (!View::Impl::handleEvent(EventType::Name,                          \
-                                     *getView(self.superview), event))         \
+        if (!View::EventImpl::handleEvent(EventType::Name,                     \
+                                          *getView(self.superview), event))    \
             [super AppkitName:event];                                          \
     }
 
@@ -335,6 +334,7 @@ View* View::addSubview(std::unique_ptr<View> view) {
     if (NSView* nativeChild = transfer(view->nativeHandle())) {
         [native addSubview:nativeChild];
     }
+    view->_parent = this;
     _subviews.push_back(std::move(view));
     return _subviews.back().get();
 }
@@ -889,9 +889,28 @@ void ColorView::doLayout(Rect frame) { setFrame(frame); }
 
 // MARK: - Custom view
 
+struct View::CustomImpl {
+    static void draw(View& view, Rect frame) { view.draw(frame); }
+};
+
 @interface AetherCustomView: NSView
 @end
 @implementation AetherCustomView
+
+- (void)drawRect:(NSRect)dirtyRect {
+    View::CustomImpl::draw(*getView(self),
+                           fromAppkitCoords(dirtyRect, self.frame.size.height));
+    CGFloat cornerRadius = 10.0;
+    NSRect rect = NSInsetRect({ {}, self.bounds.size }, 2.0, 2.0);
+    NSBezierPath* roundedRect = [NSBezierPath
+        bezierPathWithRoundedRect:rect
+                          xRadius:cornerRadius
+                          yRadius:cornerRadius];
+    [[NSColor blackColor] setStroke];
+    [roundedRect setLineWidth:2.0];
+    [roundedRect stroke];
+}
+
 - (BOOL)clipsToBounds {
     return YES;
 }
