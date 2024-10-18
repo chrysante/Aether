@@ -19,6 +19,13 @@ public:
             Button("Two", [] { std::cout << "Two\n"; }),
         }));
         setPreferredSize({ 200, 100 });
+        onEvent([this](MouseDownEvent const& e) {
+            if (e.mouseButton() == MouseButton::Left) {
+                orderFront();
+                return true;
+            }
+            return false;
+        });
         onEvent([this](MouseDragEvent const& e) {
             if (e.mouseButton() != MouseButton::Left) return false;
             this->pos += e.delta();

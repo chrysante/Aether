@@ -123,6 +123,7 @@ public:
     Position position() const;
     Size size() const;
 
+    /// \Returns the parent view if this view is attached to another view
     View* parent() { return _parent; }
     View const* parent() const { return _parent; }
 
@@ -175,6 +176,9 @@ public:
         assert(index < numSubviews());
         return _subviews[index].get();
     }
+
+    /// Orders this view to the front in its parent view
+    void orderFront();
 
     struct EventImpl;
     struct CustomImpl;

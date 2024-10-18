@@ -68,6 +68,25 @@ void View::setSubviews(std::vector<std::unique_ptr<View>> views) {
     }
 }
 
+void View::orderFront() {
+    NSView* __unsafe_unretained native = transfer(nativeHandle());
+    NSView* __unsafe_unretained superview = native.superview;
+    [superview
+        sortSubviewsUsingFunction:[](__kindof NSView* __unsafe_unretained a,
+                                     __kindof NSView* __unsafe_unretained b,
+                                     void* nativeHandle) {
+        NSView* __unsafe_unretained native = transfer(nativeHandle);
+        if (a == native) {
+            return NSOrderedDescending;
+        }
+        if (b == native) {
+            return NSOrderedAscending;
+        }
+        return NSOrderedSame;
+    }
+                          context:nativeHandle()];
+}
+
 // MARK: - Events
 
 MouseButton toMouseButton(NSUInteger buttonNumber) {
