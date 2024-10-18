@@ -19,17 +19,10 @@ public:
             Button("Two", [] { std::cout << "Two\n"; }),
         }));
         setPreferredSize({ 200, 100 });
-        // onEvent([this](MouseDragEvent const& e) {
-        //     this->pos += e.delta();
-        //     parent()->layout(parent()->frame());
-        //     return true;
-        // });
-        onEvent([](MouseDownEvent const&) {
-            std::cout << "Down\n";
-            return true;
-        });
-        onEvent([](MouseUpEvent const&) {
-            std::cout << "Up\n";
+        onEvent([this](MouseDragEvent const& e) {
+            if (e.mouseButton() != MouseButton::Left) return false;
+            this->pos += e.delta();
+            parent()->layout(parent()->frame());
             return true;
         });
     }
@@ -50,20 +43,24 @@ class NodeEditorView: public View {
 public:
     NodeEditorView(): View({ LayoutMode::Flex, LayoutMode::Flex }) {
         addSubview(std::make_unique<NodeView>(Vec2<double>{ 0, 0 }));
-        // addSubview(std::make_unique<NodeView>(Vec2<double>{ 100, 300 }));
-        // onEvent([this](ScrollEvent const& e) {
-        //     position += e.delta();
-        //     doLayout(frame());
-        //     // requestLayout();
-        //     return true;
-        // });
-        onEvent([](MouseUpEvent const&) {
-            std::cout << "NEV: Up\n";
-            return false;
+        addSubview(std::make_unique<NodeView>(Vec2<double>{ 100, 300 }));
+        onEvent([this](ScrollEvent const& e) {
+            updatePosition(e.delta());
+            return true;
+        });
+        onEvent([this](MouseDragEvent const& e) {
+            if (e.mouseButton() != MouseButton::Right) return false;
+            updatePosition(e.delta());
+            return true;
         });
     }
 
 private:
+    void updatePosition(Vec2<double> delta) {
+        position += delta;
+        doLayout(frame());
+    }
+
     void doLayout(Rect frame) override {
         setFrame(frame);
         for (auto* view: subviews()) {
@@ -104,10 +101,11 @@ struct Sandbox: Application {
     }
 
     std::unique_ptr<View> makeNodeEditor() {
-        return HStack({
-            VStack({ Button("A"), Button("B") }),
-            std::make_unique<NodeEditorView>(),
-        });
+        return HSplit({
+                   VStack({ Button("A"), Button("B") }),
+                   std::make_unique<NodeEditorView>(),
+               }) |
+               SplitViewResizeStrategy::CutRight;
     }
 
     std::unique_ptr<View> OtherTestView() {

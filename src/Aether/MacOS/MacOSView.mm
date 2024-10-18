@@ -168,44 +168,15 @@ struct View::EventImpl {
     }
 };
 
-@interface EventHandler: NSView
-@property MouseTrackingKind kind;
-@property MouseTrackingActivity activity;
-@property NSTrackingArea* trackingArea;
-@end
-@implementation EventHandler
-#define EVENT_TYPE_IMPL(Name, AppkitName)                                      \
-    -(void)AppkitName: (NSEvent*)event {                                       \
-        if (!View::EventImpl::handleEvent(EventType::Name,                     \
-                                          *getView(self.superview), event))    \
-            [super AppkitName:event];                                          \
-    }
-
-EVENT_TYPE_IMPL(ScrollEvent, scrollWheel)
-EVENT_TYPE_IMPL(MouseDownEvent, mouseDown)
-EVENT_TYPE_IMPL(MouseUpEvent, mouseUp)
-EVENT_TYPE_IMPL(MouseMoveEvent, mouseMoved)
-EVENT_TYPE_IMPL(MouseDragEvent, mouseDragged)
-EVENT_TYPE_IMPL(MouseEnterEvent, mouseEntered)
-EVENT_TYPE_IMPL(MouseExitEvent, mouseExited)
-
-- (void)setFrame:(NSRect)frame {
-    bool eq = NSEqualRects(frame, self.frame);
-    [super setFrame:frame];
-    if (eq || !self.hasTrackingArea) {
-        return;
-    }
-    [self updateTrackingArea];
-}
-- (NSTrackingArea*)makeTrackingArea {
+static NSTrackingArea* makeTrackingArea(auto* __unsafe_unretained Self) {
     NSUInteger options = 0;
-    if (test(self.kind & MouseTrackingKind::Transition)) {
+    if (test(Self.kind & MouseTrackingKind::Transition)) {
         options |= NSTrackingMouseEnteredAndExited;
     }
-    if (test(self.kind & MouseTrackingKind::Movement)) {
+    if (test(Self.kind & MouseTrackingKind::Movement)) {
         options |= NSTrackingMouseMoved;
     }
-    switch (self.activity) {
+    switch (Self.activity) {
     case MouseTrackingActivity::ActiveWindow:
         options |= NSTrackingActiveInKeyWindow;
         break;
@@ -216,51 +187,100 @@ EVENT_TYPE_IMPL(MouseExitEvent, mouseExited)
         options |= NSTrackingActiveAlways;
         break;
     }
-    return [[NSTrackingArea alloc] initWithRect:self.bounds
+    return [[NSTrackingArea alloc] initWithRect:Self.bounds
                                         options:options
-                                          owner:self
+                                          owner:Self
                                        userInfo:nil];
 }
-- (void)updateTrackingArea {
-    [self removeTrackingArea:self.trackingArea];
-    self.trackingArea = [self makeTrackingArea];
-    [self addTrackingArea:self.trackingArea];
+
+static void updateTrackingAreaFrame(auto* __unsafe_unretained Self) {
+    if (!Self.hasTrackingArea) {
+        return;
+    }
+    if (NSEqualRects(Self.bounds, Self.trackingArea.rect)) {
+        return;
+    }
+    [Self updateTrackingArea:Self.kind activity:Self.activity];
 }
-- (BOOL)hasTrackingArea {
-    return !!self.trackingArea;
+
+static MouseTrackingActivity max(MouseTrackingActivity a,
+                                 MouseTrackingActivity b) {
+    return (MouseTrackingActivity)std::max((int)a, (int)b);
 }
-- (void)setHasTrackingArea:(BOOL)value {
+
+static void updateTrackingArea(auto* __unsafe_unretained Self,
+                               MouseTrackingKind kind,
+                               MouseTrackingActivity activity) {
+    Self.kind |= kind;
+    Self.activity = ::max(Self.activity, activity);
+    [Self removeTrackingArea:Self.trackingArea];
+    Self.trackingArea = [Self makeTrackingArea];
+    [Self addTrackingArea:Self.trackingArea];
+}
+
+static void setHasTrackingArea(auto* __unsafe_unretained Self, bool value) {
     if (value) {
-        if (!self.trackingArea) {
-            self.trackingArea = [self makeTrackingArea];
+        if (!Self.trackingArea) {
+            Self.trackingArea = [Self makeTrackingArea];
         }
     }
     else {
-        [self removeTrackingArea:self.trackingArea];
-        self.trackingArea = nil;
+        [Self removeTrackingArea:Self.trackingArea];
+        Self.trackingArea = nil;
     }
 }
-- (BOOL)acceptsFirstMouse:(NSEvent*)event {
-    return YES;
-}
-@end
 
-static void const* const EventHandlerKey = &EventHandlerKey;
-
-static EventHandler* getEventHandler(NSView* native) {
-    return objc_getAssociatedObject(native, EventHandlerKey);
-}
-
-static EventHandler* getOrInstallEventHandler(NSView* native) {
-    if (EventHandler* handler = getEventHandler(native)) {
-        return handler;
+#define EVENT_TYPE_IMPL(Name, AppkitName)                                      \
+    -(void)AppkitName: (NSEvent*)event {                                       \
+        if (!View::EventImpl::handleEvent(EventType::Name, *getView(self),     \
+                                          event))                              \
+            [super AppkitName:event];                                          \
     }
-    EventHandler* handler = [[EventHandler alloc] init];
-    [native addSubview:handler];
-    objc_setAssociatedObject(native, EventHandlerKey, handler,
-                             OBJC_ASSOCIATION_RETAIN);
-    return handler;
-}
+
+/// This macro allows us to subclass any NSView and add custom event handling to
+/// it. This way we don't have to add an additional subview to each view that we
+/// want to handle events on
+#define EVENT_VIEW_SUBCLASS(Name, Super)                                       \
+    @interface Name: Super                                                     \
+    @property MouseTrackingKind kind;                                          \
+    @property MouseTrackingActivity activity;                                  \
+    @property NSTrackingArea* trackingArea;                                    \
+    @end                                                                       \
+    @implementation Name                                                       \
+    EVENT_TYPE_IMPL(ScrollEvent, scrollWheel)                                  \
+    EVENT_TYPE_IMPL(MouseDownEvent, mouseDown)                                 \
+    EVENT_TYPE_IMPL(MouseDownEvent, rightMouseDown)                            \
+    EVENT_TYPE_IMPL(MouseDownEvent, otherMouseDown)                            \
+    EVENT_TYPE_IMPL(MouseUpEvent, mouseUp)                                     \
+    EVENT_TYPE_IMPL(MouseUpEvent, rightMouseUp)                                \
+    EVENT_TYPE_IMPL(MouseUpEvent, otherMouseUp)                                \
+    EVENT_TYPE_IMPL(MouseMoveEvent, mouseMoved)                                \
+    EVENT_TYPE_IMPL(MouseDragEvent, mouseDragged)                              \
+    EVENT_TYPE_IMPL(MouseDragEvent, rightMouseDragged)                         \
+    EVENT_TYPE_IMPL(MouseDragEvent, otherMouseDragged)                         \
+    EVENT_TYPE_IMPL(MouseEnterEvent, mouseEntered)                             \
+    EVENT_TYPE_IMPL(MouseExitEvent, mouseExited)                               \
+    -(void)setFrame: (NSRect)frame {                                           \
+        [super setFrame:frame];                                                \
+        ::updateTrackingAreaFrame(self);                                       \
+    }                                                                          \
+    -(NSTrackingArea*)makeTrackingArea {                                       \
+        return ::makeTrackingArea(self);                                       \
+    }                                                                          \
+    -(void)updateTrackingArea:                                                 \
+        (MouseTrackingKind)kind activity: (MouseTrackingActivity)activity {    \
+        ::updateTrackingArea(self, kind, activity);                            \
+    }                                                                          \
+    -(BOOL)hasTrackingArea {                                                   \
+        return !!self.trackingArea;                                            \
+    }                                                                          \
+    -(void)setHasTrackingArea: (BOOL)value {                                   \
+        ::setHasTrackingArea(self, value);                                     \
+    }                                                                          \
+    -(BOOL)acceptsFirstMouse: (NSEvent*)event {                                \
+        return YES;                                                            \
+    }                                                                          \
+    @end
 
 template <EventType ID, size_t Index = 0, auto... DerivedIDs>
 struct DerivedEventTypeListImpl:
@@ -284,7 +304,6 @@ static constexpr auto DerivedEventTypeList =
 
 void View::installEventHandler(EventType type,
                                std::function<bool(EventUnion const&)> handler) {
-    (void)getOrInstallEventHandler(transfer(nativeHandle()));
     [&]<size_t... I>(std::index_sequence<I...>) {
         auto makeImpl = []<size_t J>() {
             return [](View& view,
@@ -300,31 +319,33 @@ void View::installEventHandler(EventType type,
         size_t)type](*this, handler);
 }
 
-static MouseTrackingActivity max(MouseTrackingActivity a,
-                                 MouseTrackingActivity b) {
-    return (MouseTrackingActivity)std::max((int)a, (int)b);
-}
+static SEL const UpdateTrackingAreaSelector =
+    NSSelectorFromString(@"updateTrackingArea:activity:");
 
 void View::trackMouseMovement(MouseTrackingKind kind,
                               MouseTrackingActivity activity) {
-    EventHandler* eventHandler =
-        getOrInstallEventHandler(transfer(nativeHandle()));
-    eventHandler.kind |= kind;
-    eventHandler.activity = ::max(eventHandler.activity, activity);
-    [eventHandler updateTrackingArea];
+    NSView* native = transfer(nativeHandle());
+    assert([native respondsToSelector:UpdateTrackingAreaSelector]);
+    NSMethodSignature* signature =
+        [native methodSignatureForSelector:UpdateTrackingAreaSelector];
+    NSInvocation* invocation =
+        [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setTarget:native];
+    [invocation setSelector:UpdateTrackingAreaSelector];
+    // Index 0 is self, index 1 is _cmd
+    [invocation setArgument:&kind atIndex:2];
+    [invocation setArgument:&activity atIndex:3];
+    [invocation invoke];
 }
 
 bool View::setFrame(Rect frame) {
     NSView* view = transfer(nativeHandle());
     NSRect newFrame = toAppkitCoords(frame, view.superview.frame.size.height);
-    bool eq = NSEqualRects(view.frame, newFrame);
-    if (!eq) {
+    if (!NSEqualRects(view.frame, newFrame)) {
         view.frame = newFrame;
+        return true;
     }
-    if (EventHandler* eventHandler = getEventHandler(view)) {
-        eventHandler.frame = { {}, newFrame.size };
-    }
-    return !eq;
+    return false;
 }
 
 // MARK: - AggregateView
@@ -341,20 +362,24 @@ View* View::addSubview(std::unique_ptr<View> view) {
 
 // MARK: - StackView
 
+EVENT_VIEW_SUBCLASS(EventView, NSView)
+
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
     View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
-    NSView* view = [[NSView alloc] init];
+    NSView* view = [[EventView alloc] init];
     setNativeHandle(retain(view));
     setSubviews(std::move(children));
 }
 
 // MARK: - ScrollView
 
+EVENT_VIEW_SUBCLASS(EventScrollView, NSScrollView)
+
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
     View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
     setSubviewsWeak(PrivateViewKey, std::move(children));
     NSView* content = [[NSView alloc] init];
-    NSScrollView* scrollView = [[NSScrollView alloc] init];
+    NSScrollView* scrollView = [[EventScrollView alloc] init];
     for (auto* child: subviews()) {
         NSView* childView = transfer(child->nativeHandle());
         [content addSubview:childView];
@@ -372,7 +397,9 @@ void ScrollView::setDocumentSize(Size size) {
 
 // MARK: - SplitView
 
-@interface AetherSplitView: NSSplitView
+EVENT_VIEW_SUBCLASS(EventSplitView, NSSplitView)
+
+@interface AetherSplitView: EventSplitView
 @property NSColor* divColor;
 @property std::optional<double> divThickness;
 @property SplitView* This;
@@ -617,10 +644,12 @@ static NSTabViewBorderType toNS(TabViewBorder border) {
     }
 }
 
+EVENT_VIEW_SUBCLASS(EventTabView, NSTabView)
+
 TabView::TabView(std::vector<TabViewElement> elems):
     View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }),
     elements(std::move(elems)) {
-    NSTabView* view = [[NSTabView alloc] init];
+    NSTabView* view = [[EventTabView alloc] init];
     view.tabPosition = toNS(_tabPosition);
     view.tabViewBorderType = toNS(_border);
     setNativeHandle(retain(view));
@@ -748,6 +777,8 @@ NSString* makeButtonTitle(std::string_view title, ButtonType type,
     return toNSString(title);
 }
 
+EVENT_VIEW_SUBCLASS(EventButtonView, NSButton)
+
 ButtonView::ButtonView(std::string label, std::function<void()> action,
                        ButtonType type):
     View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static },
@@ -755,7 +786,7 @@ ButtonView::ButtonView(std::string label, std::function<void()> action,
     _type(type),
     _label(std::move(label)),
     _action(std::move(action)) {
-    NSButton* button = [[NSButton alloc] init];
+    NSButton* button = [[EventButtonView alloc] init];
     button.buttonType = toNS(type);
     setNativeHandle(retain(button));
     setBezelStyle(_bezelStyle);
@@ -782,20 +813,24 @@ void ButtonView::setLabel(std::string label) {
 
 // MARK: - Switch
 
+EVENT_VIEW_SUBCLASS(EventSwitchView, NSSwitch)
+
 SwitchView::SwitchView():
     View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static }) {
-    NSSwitch* view = [[NSSwitch alloc] init];
+    NSSwitch* view = [[EventSwitchView alloc] init];
     setNativeHandle(retain(view));
     setMinSize(fromNSSize(view.intrinsicContentSize));
 }
 
 // MARK: - TextField
 
+EVENT_VIEW_SUBCLASS(EventTextField, NSTextField)
+
 TextFieldView::TextFieldView(std::string defaultText):
     View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
          MinSize({ 80, 32 })) {
     NSTextField* view =
-        [NSTextField textFieldWithString:toNSString(defaultText)];
+        [EventTextField textFieldWithString:toNSString(defaultText)];
     view.bezelStyle = NSTextFieldRoundedBezel;
     setAttribute<ViewAttributeKey::PaddingX>(6);
     setAttribute<ViewAttributeKey::PaddingY>(6);
@@ -817,7 +852,7 @@ std::string TextFieldView::getText() const {
 LabelView::LabelView(std::string text):
     View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
          MinSize({ 80, 22 })) {
-    NSTextField* field = [NSTextField labelWithString:toNSString(text)];
+    NSTextField* field = [EventTextField labelWithString:toNSString(text)];
     setNativeHandle(retain(field));
 }
 
@@ -828,10 +863,12 @@ void LabelView::setText(std::string text) {
 
 // MARK: - ProgressIndicatorView
 
+EVENT_VIEW_SUBCLASS(EventProgressIndicator, NSProgressIndicator)
+
 ProgressIndicatorView::ProgressIndicatorView(Style style):
     View(PrivateViewKey, { style == Bar ? LayoutMode::Flex : LayoutMode::Static,
                            LayoutMode::Static }) {
-    NSProgressIndicator* view = [[NSProgressIndicator alloc] init];
+    NSProgressIndicator* view = [[EventProgressIndicator alloc] init];
     switch (style) {
     case Bar:
         view.style = NSProgressIndicatorStyleBar;
@@ -848,7 +885,7 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
 
 // MARK: - ColorView
 
-@interface FlatColorView: NSView
+@interface FlatColorView: EventView
 @property(nonatomic, strong) NSColor* color;
 @end
 @implementation FlatColorView
@@ -893,7 +930,7 @@ struct View::CustomImpl {
     static void draw(View& view, Rect frame) { view.draw(frame); }
 };
 
-@interface AetherCustomView: NSView
+@interface AetherCustomView: EventView
 @end
 @implementation AetherCustomView
 
