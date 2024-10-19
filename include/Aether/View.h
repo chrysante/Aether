@@ -348,11 +348,9 @@ public:
         _resizeStrategy = strategy;
     }
 
-#ifdef AETHER_VIEW_IMPL
-public:
-#else
+    struct Impl;
+
 private:
-#endif
     void didResizeSubviews();
     double constrainSplitPosition(double proposedPosition,
                                   size_t dividerIndex) const;

@@ -477,6 +477,15 @@ EVENT_VIEW_SUBCLASS(EventSplitView, NSSplitView)
 @property SplitView* This;
 @end
 
+struct SplitView::Impl {
+    static void didResizeSubviews(SplitView& view) { view.didResizeSubviews(); }
+    static double constrainSplitPosition(SplitView const& view,
+                                         double proposedPosition,
+                                         size_t dividerIndex) {
+        return view.constrainSplitPosition(proposedPosition, dividerIndex);
+    }
+};
+
 @implementation AetherSplitView
 - (NSColor*)dividerColor {
     if (self.divColor) {
@@ -498,7 +507,7 @@ EVENT_VIEW_SUBCLASS(EventSplitView, NSSplitView)
 @implementation SplitViewDelegate
 - (void)splitViewDidResizeSubviews:(NSNotification*)notification {
     auto* This = ((AetherSplitView*)notification.object).This;
-    This->didResizeSubviews();
+    SplitView::Impl::didResizeSubviews(*This);
 }
 - (void)splitView:(NSSplitView*)splitView
     resizeSubviewsWithOldSize:(NSSize)oldSize {
@@ -512,7 +521,8 @@ EVENT_VIEW_SUBCLASS(EventSplitView, NSSplitView)
     constrainSplitPosition:(CGFloat)proposedPosition
                ofSubviewAt:(NSInteger)dividerIndex {
     auto* This = ((AetherSplitView*)splitView).This;
-    return This->constrainSplitPosition(proposedPosition, dividerIndex);
+    return SplitView::Impl::constrainSplitPosition(*This, proposedPosition,
+                                                   dividerIndex);
 }
 @end
 
