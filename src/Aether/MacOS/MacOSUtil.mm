@@ -10,11 +10,11 @@ static double getScreenHeight() {
     return [screen frame].size.height;
 }
 
-NSPoint xui::toAppkitCoords(xui::Position pos) {
+NSPoint xui::toAppkitCoords(xui::Point pos) {
     return toAppkitCoords(pos, getScreenHeight());
 }
 
-xui::Position xui::fromAppkitCoords(NSPoint pos) {
+xui::Point xui::fromAppkitCoords(NSPoint pos) {
     return fromAppkitCoords(pos, getScreenHeight());
 }
 
@@ -23,7 +23,7 @@ xui::Rect xui::fromAppkitCoords(NSRect rect) {
 }
 
 xui::Rect xui::fromAppkitCoords(NSRect rect, double height) {
-    Position pos = { rect.origin.x, height - rect.origin.y - rect.size.height };
+    Point pos = { rect.origin.x, height - rect.origin.y - rect.size.height };
     return { pos, fromNSSize(rect.size) };
 }
 

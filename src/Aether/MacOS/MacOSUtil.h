@@ -24,30 +24,31 @@ inline NSSize toNSSize(xui::Size size) {
 inline xui::Size fromNSSize(NSSize size) { return { size.width, size.height }; }
 
 inline NSRect toNSRect(xui::Rect rect) {
-    return NSMakeRect(rect.pos().x, rect.pos().y, rect.width(), rect.height());
+    return NSMakeRect(rect.origin().x, rect.origin().y, rect.width(),
+                      rect.height());
 }
 
-NSPoint toAppkitCoords(xui::Position pos);
+NSPoint toAppkitCoords(xui::Point pos);
 
-inline NSPoint toAppkitCoords(xui::Position pos, double height) {
+inline NSPoint toAppkitCoords(xui::Point pos, double height) {
     return { pos.x, height - pos.y };
 }
 
 inline NSRect toAppkitCoords(xui::Rect rect) {
-    auto pos = toAppkitCoords(rect.pos());
+    auto pos = toAppkitCoords(rect.origin());
     pos.y -= rect.height();
     return { pos, NSSize{ rect.width(), rect.height() } };
 }
 
 inline NSRect toAppkitCoords(xui::Rect rect, double height) {
-    auto pos = toAppkitCoords(rect.pos(), height);
+    auto pos = toAppkitCoords(rect.origin(), height);
     pos.y -= rect.height();
     return { pos, NSSize{ rect.width(), rect.height() } };
 }
 
-Position fromAppkitCoords(NSPoint pos);
+Point fromAppkitCoords(NSPoint pos);
 
-inline Position fromAppkitCoords(NSPoint pos, double height) {
+inline Point fromAppkitCoords(NSPoint pos, double height) {
     return { pos.x, height - pos.y };
 }
 

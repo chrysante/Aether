@@ -125,7 +125,7 @@ public:
     void setLayoutModeY(LayoutMode mode) { _layoutMode.y = mode; }
 
     Rect frame() const { return { position(), size() }; }
-    Position position() const;
+    Point position() const;
     Size size() const;
 
     /// \Returns the parent view if this view is attached to another view

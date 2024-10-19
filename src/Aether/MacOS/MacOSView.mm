@@ -281,7 +281,7 @@ void* detail::defaultNativeConstructor(ViewOptions const&) {
 
 View::~View() { release(nativeHandle()); }
 
-Position View::position() const {
+xui::Point View::position() const {
     NSView* view = transfer(nativeHandle());
     auto pos =
         fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
@@ -638,7 +638,7 @@ double SplitView::constrainSplitPosition(double proposedPosition,
     auto* right = subviewAt(index + 1);
     // Must transform the position again because of the flipped coordinate
     // system
-    Position leftPosition = left->position();
+    Point leftPosition = left->position();
     leftPosition.y += left->size().height();
     leftPosition.y = size().height() - leftPosition.y;
     double currentPosition = leftPosition[axis] + left->size()[axis];
@@ -680,13 +680,13 @@ void SplitView::doLayout(Rect frame) {
         double frac = childFractions[i];
         assert(frac >= 0.0);
         double childSize = totalSize * frac;
-        Rect childFrame = { Position(axis, offset), frame.size() };
+        Rect childFrame = { Point(axis, offset), frame.size() };
         childFrame.size()[axis] = childSize;
         if (axis == Axis::Y) {
             // We need to do this coordinate transform dance because here AppKit
             // uses top-left -> bottom-right coordinates, unlike everywhere else
-            childFrame.pos().y =
-                frame.height() - childFrame.height() - childFrame.pos().y;
+            childFrame.origin().y =
+                frame.height() - childFrame.height() - childFrame.origin().y;
         }
         child->layout(childFrame);
         offset += childSize + dividerThickness;

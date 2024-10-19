@@ -235,9 +235,9 @@ constexpr T& get(Vec2<T>& v) {
     return const_cast<T&>(get<I>(std::as_const(v)));
 }
 
-struct Position: Vec<double, 2> {
+struct Point: Vec<double, 2> {
     using Vec::Vec;
-    Position(Vec2<double> v): Vec(v) {}
+    Point(Vec2<double> v): Vec(v) {}
 };
 
 template <typename T, size_t N>
@@ -257,17 +257,17 @@ public:
 
 using Size = SizeT<double, 2>;
 
-struct Rect: Position, Size {
-    Position& pos() { return *this; };
-    Position const& pos() const { return *this; };
+struct Rect: Point, Size {
+    Point& origin() { return *this; };
+    Point const& origin() const { return *this; };
     Size& size() { return *this; };
     Size const& size() const { return *this; };
 };
 
 constexpr Rect merge(Rect const& A, Rect const& B) {
-    auto AMax = A.pos() + A.size();
-    auto BMax = B.pos() + B.size();
-    auto pos = min(A.pos(), B.pos());
+    auto AMax = A.origin() + A.size();
+    auto BMax = B.origin() + B.size();
+    auto pos = min(A.origin(), B.origin());
     return { pos, max(AMax, BMax) - pos };
 }
 

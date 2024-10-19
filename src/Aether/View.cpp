@@ -21,11 +21,11 @@ View::View(ViewOptions const& options):
 
 void View::layout(Rect frame) {
     if (auto padding = getAttribute<ViewAttributeKey::PaddingX>()) {
-        frame.pos().x += *padding;
+        frame.origin().x += *padding;
         frame.width() -= 2 * *padding;
     }
     if (auto padding = getAttribute<ViewAttributeKey::PaddingY>()) {
-        frame.pos().y += *padding;
+        frame.origin().y += *padding;
         frame.height() -= 2 * *padding;
     }
     doLayout(frame);
@@ -115,21 +115,21 @@ static double computeAlignedPosition(double childSize, double parentSize,
 }
 
 template <Axis A>
-static Position computeAlignedPosition(View const& child, Size childSize,
-                                       Size parentSize, double cursor) {
+static Point computeAlignedPosition(View const& child, Size childSize,
+                                    Size parentSize, double cursor) {
     static_assert(A != Axis::Z);
     constexpr ViewAttributeKey Key = A == Axis::X ? ViewAttributeKey::AlignY :
                                                     ViewAttributeKey::AlignX;
     auto B = flip(A);
-    Position pos{};
+    Point pos{};
     pos[A] = cursor;
     pos[B] = computeAlignedPosition(childSize[B], parentSize[B],
                                     orDefault(child.getAttribute<Key>()));
     return pos;
 }
 
-static Position computeAlignedPositionZ(View const& child, Size childSize,
-                                        Size parentSize) {
+static Point computeAlignedPositionZ(View const& child, Size childSize,
+                                     Size parentSize) {
     return {
         computeAlignedPosition(
             childSize[0], parentSize[0],
@@ -164,7 +164,7 @@ static Rect layoutChildrenXY(auto&& children, Rect frame,
             }
         }
         Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
-        Position childPosition =
+        Point childPosition =
             computeAlignedPosition<A>(*child, childSize, frame.size(), cursor);
         Rect childRect{ childPosition, childSize };
         child->layout(childRect);
@@ -186,7 +186,7 @@ static Rect layoutChildrenZ(auto&& children, Rect frame) {
             prefSize[index] = frame.size()[index];
         }
         Size childSize = clamp(prefSize, child->minSize(), child->maxSize());
-        Position childPosition =
+        Point childPosition =
             computeAlignedPositionZ(*child, childSize, frame.size());
         Rect childRect{ childPosition, childSize };
         child->layout(childRect);
