@@ -39,6 +39,7 @@ enum class MouseTrackingActivity {
 #define AETHER_VIEW_ATTRIB_KEY(X)                                              \
     /* Name                 Type */                                            \
     X(SplitViewCollapsable, bool)                                              \
+    X(SplitViewResizeWeight, double)                                           \
     X(PaddingX, double)                                                        \
     X(PaddingY, double)                                                        \
     X(AlignX, AlignX)                                                          \

@@ -135,16 +135,20 @@ constexpr auto SplitterThickness(std::optional<double> thickness) {
 
 namespace detail {
 
-struct SplitViewCollapsableFn {
-    explicit constexpr SplitViewCollapsableFn(bool value): value(value) {}
+template <ViewAttributeKey Key, typename V = View>
+struct AttribKeyFn {
+    using ValueType = detail::ViewAttribKeyType<Key>;
+    using ViewType = V;
 
-    constexpr SplitViewCollapsableFn operator()(bool value) const {
-        return SplitViewCollapsableFn(value);
+    explicit constexpr AttribKeyFn(ValueType value): value(value) {}
+
+    constexpr AttribKeyFn operator()(ValueType value) const {
+        return AttribKeyFn(std::move(value));
     }
 
 private:
-    friend void applyModifier(SplitViewCollapsableFn obj, View& view) {
-        view.setAttribute<ViewAttributeKey::SplitViewCollapsable>(obj.value);
+    friend void applyModifier(AttribKeyFn obj, ViewType& view) {
+        view.setAttribute<Key>(obj.value);
     }
 
     bool value = true;
@@ -152,7 +156,10 @@ private:
 
 } // namespace detail
 
-inline constexpr detail::SplitViewCollapsableFn SplitViewCollapsable{ true };
+inline constexpr detail::AttribKeyFn<ViewAttributeKey::SplitViewCollapsable>
+    SplitViewCollapsable{ true };
+inline constexpr detail::AttribKeyFn<ViewAttributeKey::SplitViewResizeWeight>
+    SplitViewResizeWeight{ true };
 
 inline void applyModifier(TabPosition pos, TabView& view) {
     view.setTabPosition(pos);
