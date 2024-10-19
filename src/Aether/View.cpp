@@ -313,3 +313,15 @@ void LabelView::doLayout(Rect frame) { setFrame(frame); }
 std::unique_ptr<LabelView> xui::Label(std::string text) {
     return std::make_unique<LabelView>(text);
 }
+
+std::unique_ptr<VisualEffectView> xui::BlendInWindow(
+    std::unique_ptr<View> view) {
+    return std::make_unique<VisualEffectView>(
+        VisualEffectBlendMode::WithinWindow, std::move(view));
+}
+
+std::unique_ptr<VisualEffectView> xui::BlendBehindWindow(
+    std::unique_ptr<View> view) {
+    return std::make_unique<VisualEffectView>(
+        VisualEffectBlendMode::BehindWindow, std::move(view));
+}

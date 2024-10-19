@@ -22,6 +22,18 @@ std::unique_ptr<V> operator|(std::unique_ptr<V>&& view,
     return std::move(view);
 }
 
+template <typename M, typename V>
+concept StrongModifierFor = requires(M&& mod, std::unique_ptr<V> view) {
+    {
+        applyModifier(std::forward<M>(mod), std::move(view))
+    } -> std::convertible_to<std::unique_ptr<View>>;
+};
+
+template <std::derived_from<View> V>
+auto operator|(std::unique_ptr<V>&& view, StrongModifierFor<V> auto&& mod) {
+    return applyModifier(std::forward<decltype(mod)>(mod), std::move(view));
+}
+
 template <typename V, std::invocable<V&> M>
 void applyModifier(M&& mod, V& view) {
     std::invoke(std::forward<M>(mod), view);
@@ -34,15 +46,25 @@ constexpr auto Flex() {
 }
 
 constexpr auto XFlex() {
-    return [](View& view) {
-        view.setLayoutMode({ LayoutMode::Flex, view.layoutMode().y });
-    };
+    return [](View& view) { view.setLayoutModeX(LayoutMode::Flex); };
 }
 
 constexpr auto YFlex() {
+    return [](View& view) { view.setLayoutModeY(LayoutMode::Flex); };
+}
+
+constexpr auto Static() {
     return [](View& view) {
-        view.setLayoutMode({ view.layoutMode().x, LayoutMode::Flex });
+        view.setLayoutMode({ LayoutMode::Static, LayoutMode::Static });
     };
+}
+
+constexpr auto XStatic() {
+    return [](View& view) { view.setLayoutModeX(LayoutMode::Static); };
+}
+
+constexpr auto YStatic() {
+    return [](View& view) { view.setLayoutModeY(LayoutMode::Static); };
 }
 
 constexpr auto PreferredSize(Size size) {
@@ -160,6 +182,13 @@ auto OnEvent(F&&... f) {
 inline auto TrackMouseMovement(MouseTrackingKind kind,
                                MouseTrackingActivity activity) {
     return [=](View& view) { view.trackMouseMovement(kind, activity); };
+}
+
+template <std::derived_from<View> U, std::derived_from<View> V,
+          std::derived_from<V> W>
+inline std::unique_ptr<U> applyModifier(
+    std::unique_ptr<U> (*mod)(std::unique_ptr<V>), std::unique_ptr<W> view) {
+    return mod(std::move(view));
 }
 
 } // namespace xui

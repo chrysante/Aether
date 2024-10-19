@@ -289,6 +289,10 @@ std::unique_ptr<StackView> ZStack(std::unique_ptr<View> (&&children)[N]) {
     return ZStack(toMoveOnlyVector(std::move(children)));
 }
 
+/// Modifier tag to give scroll views a transparent background
+enum class NoBackgroundT : int;
+inline constexpr NoBackgroundT NoBackground{};
+
 ///
 class ScrollView: public View {
 public:
@@ -300,6 +304,8 @@ private:
     void doLayout(Rect frame) override;
     bool setFrame(Rect frame) override;
     void setDocumentSize(Size size);
+
+    friend void applyModifier(NoBackgroundT, ScrollView&);
 
     Axis axis;
 };
@@ -578,6 +584,27 @@ public:
 private:
     void doLayout(Rect frame) override;
 };
+
+enum class VisualEffectBlendMode { BehindWindow, WithinWindow };
+
+///
+class VisualEffectView: public View {
+public:
+    explicit VisualEffectView(VisualEffectBlendMode blendMode,
+                              std::unique_ptr<View> subview);
+
+private:
+    static void* nativeConstructor(VisualEffectBlendMode, ViewOptions const&);
+
+    void doLayout(Rect frame) override;
+};
+
+/// Wraps \p view in a `VisualEffectView` that blends underlying window content
+std::unique_ptr<VisualEffectView> BlendInWindow(std::unique_ptr<View> view);
+
+/// Wraps \p view in a `VisualEffectView` that blends the content behind the
+/// window
+std::unique_ptr<VisualEffectView> BlendBehindWindow(std::unique_ptr<View> view);
 
 } // namespace xui
 

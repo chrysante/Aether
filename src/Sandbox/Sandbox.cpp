@@ -85,28 +85,24 @@ private:
 struct Sandbox: Application {
     Sandbox() {
         createWindow();
-        // window->setContentView(OtherTestView());
         window->setContentView(makeNodeEditor());
-        // window->setContentView(TestView());
     }
 
     void createWindow() {
-        window = xui::window("My Window", { { 100, 100 }, { 500, 500 } });
-        window->setToolbar(Toolbar({
-            Button("Hello 1", [] { std::cout << "Hello 1\n"; }) |
-                BezelStyle::Toolbar,
-            Button("Hello 2", [] { std::cout << "Hello 2\n"; }) |
-                BezelStyle::Toolbar,
-            Button("Hello 3", [] { std::cout << "Hello 3\n"; }) |
-                BezelStyle::Badge,
-        }));
+        window = xui::window("My Window", { { 100, 100 }, { 500, 500 } },
+                             { .fullSizeContentView = true });
+    }
+
+    std::unique_ptr<View> Sidebar() {
+        return VStack({ VStack({}) | PreferredHeight(38) | YStatic(),
+                        VScrollView({ Button("A"), Button("B") }) |
+                            NoBackground }) |
+               BlendBehindWindow;
     }
 
     std::unique_ptr<View> makeNodeEditor() {
-        return HSplit({
-                   VStack({ Button("A"), Button("B") }),
-                   std::make_unique<NodeEditorView>(),
-               }) |
+        return HSplit({ Sidebar(), std::make_unique<NodeEditorView>(),
+                        Sidebar() }) |
                SplitViewResizeStrategy::CutRight;
     }
 

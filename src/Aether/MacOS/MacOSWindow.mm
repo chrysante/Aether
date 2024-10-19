@@ -115,6 +115,8 @@ Window::Window(std::string title, Rect frame, WindowProperties props,
         window.titlebarAppearsTransparent = YES;
         window.styleMask |= NSWindowStyleMaskFullSizeContentView;
     }
+    window.toolbarStyle = NSWindowToolbarStyleUnifiedCompact;
+    window.toolbar = [[NSToolbar alloc] init];
     window.titleVisibility = NSWindowTitleHidden;
     [window setDelegate:gWindowDelegate];
     setContentView(std::move(content));

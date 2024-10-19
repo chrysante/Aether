@@ -462,6 +462,11 @@ void ScrollView::setDocumentSize(Size size) {
     view.documentView.frame = { {}, toNSSize(size) };
 }
 
+void xui::applyModifier(NoBackgroundT, ScrollView& view) {
+    NSScrollView* native = transfer(view.nativeHandle());
+    native.drawsBackground = NO;
+}
+
 // MARK: - SplitView
 
 EVENT_VIEW_SUBCLASS(EventSplitView, NSSplitView)
@@ -1036,3 +1041,39 @@ ColorView::ColorView(Color const& color):
                std::bind_front(colorViewCtor, toNSColor(color)) }) {}
 
 void ColorView::doLayout(Rect frame) { setFrame(frame); }
+
+EVENT_VIEW_SUBCLASS(AetherVisualEffectView, NSVisualEffectView)
+
+VisualEffectView::VisualEffectView(VisualEffectBlendMode blendMode,
+                                   std::unique_ptr<View> subview):
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor =
+               std::bind_front(nativeConstructor, blendMode) }) {
+    addSubview(std::move(subview));
+}
+
+static NSVisualEffectBlendingMode toNS(VisualEffectBlendMode mode) {
+    using enum VisualEffectBlendMode;
+    switch (mode) {
+    case BehindWindow:
+        return NSVisualEffectBlendingModeBehindWindow;
+    case WithinWindow:
+        return NSVisualEffectBlendingModeWithinWindow;
+    }
+}
+
+void* VisualEffectView::nativeConstructor(VisualEffectBlendMode blendMode,
+                                          ViewOptions const&) {
+    AetherVisualEffectView* native = [[AetherVisualEffectView alloc] init];
+    native.blendingMode = toNS(blendMode);
+    native.material = NSVisualEffectMaterialSidebar; // For now
+    return retain(native);
+}
+
+void VisualEffectView::doLayout(Rect frame) {
+    setFrame(frame);
+    for (auto* view: subviews()) {
+        view->layout({ {}, frame.size() });
+    }
+}
