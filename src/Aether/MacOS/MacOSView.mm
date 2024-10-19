@@ -15,32 +15,11 @@
 #include "Aether/ViewUtil.h"
 
 using namespace xui;
-using namespace detail::viewProperties;
 using detail::PrivateViewKey;
 
-// MARK: - View
-
-View::~View() { release(nativeHandle()); }
-
-Position View::position() const {
-    NSView* view = transfer(nativeHandle());
-    auto pos =
-        fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
-    pos.y -= view.frame.size.height;
-    return pos;
-}
-
-xui::Size View::size() const {
-    NSView* view = transfer(nativeHandle());
-    return fromNSSize(view.frame.size);
-}
+// MARK: - Events
 
 static void* ViewHandleKey = &ViewHandleKey;
-
-void View::setNativeHandle(void* handle) {
-    _nativeHandle = handle;
-    setAssocPointer(transfer(handle), ViewHandleKey, this);
-}
 
 static View* getView(NSView* view) {
     return getAssocPointer<View*>(view, ViewHandleKey);
@@ -50,44 +29,6 @@ template <typename V>
 static V* getView(NSView* view) {
     return dynamic_cast<V*>(getView(view));
 }
-
-void View::requestLayout() {
-    NSView* view = transfer(nativeHandle());
-    [view setNeedsLayout:true];
-}
-
-void View::setSubviews(std::vector<std::unique_ptr<View>> views) {
-    NSView* native = transfer(nativeHandle());
-    NSArray* nativeSubviews = [native subviews];
-    for (NSView* subview in nativeSubviews) {
-        [subview removeFromSuperview];
-    }
-    setSubviewsWeak(PrivateViewKey, std::move(views));
-    for (auto* child: subviews()) {
-        [native addSubview:transfer(child->nativeHandle())];
-    }
-}
-
-void View::orderFront() {
-    NSView* __unsafe_unretained native = transfer(nativeHandle());
-    NSView* __unsafe_unretained superview = native.superview;
-    [superview
-        sortSubviewsUsingFunction:[](__kindof NSView* __unsafe_unretained a,
-                                     __kindof NSView* __unsafe_unretained b,
-                                     void* nativeHandle) {
-        NSView* __unsafe_unretained native = transfer(nativeHandle);
-        if (a == native) {
-            return NSOrderedDescending;
-        }
-        if (b == native) {
-            return NSOrderedAscending;
-        }
-        return NSOrderedSame;
-    }
-                          context:nativeHandle()];
-}
-
-// MARK: - Events
 
 MouseButton toMouseButton(NSUInteger buttonNumber) {
     assert(buttonNumber <= 2);
@@ -301,6 +242,103 @@ static void setHasTrackingArea(auto* __unsafe_unretained Self, bool value) {
     }                                                                          \
     @end
 
+// MARK: - Default view
+
+EVENT_VIEW_SUBCLASS(EventView, NSView)
+
+struct View::CustomImpl {
+    static void draw(View& view, Rect frame) { view.draw(frame); }
+};
+
+@interface AetherDefaultView: EventView
+@end
+@implementation AetherDefaultView
+
+- (void)drawRect:(NSRect)dirtyRect {
+    View::CustomImpl::draw(*getView(self),
+                           fromAppkitCoords(dirtyRect, self.frame.size.height));
+    CGFloat cornerRadius = 10.0;
+    NSRect rect = NSInsetRect({ {}, self.bounds.size }, 2.0, 2.0);
+    NSBezierPath* roundedRect = [NSBezierPath
+        bezierPathWithRoundedRect:rect
+                          xRadius:cornerRadius
+                          yRadius:cornerRadius];
+    [[NSColor blackColor] setStroke];
+    [roundedRect setLineWidth:2.0];
+    [roundedRect stroke];
+}
+
+- (BOOL)clipsToBounds {
+    return YES;
+}
+@end
+
+void* detail::defaultNativeConstructor(ViewOptions const&) {
+    AetherDefaultView* native = [[AetherDefaultView alloc] init];
+    return retain(native);
+}
+
+// MARK: - View
+
+View::~View() { release(nativeHandle()); }
+
+Position View::position() const {
+    NSView* view = transfer(nativeHandle());
+    auto pos =
+        fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
+    pos.y -= view.frame.size.height;
+    return pos;
+}
+
+xui::Size View::size() const {
+    NSView* view = transfer(nativeHandle());
+    return fromNSSize(view.frame.size);
+}
+
+void View::setNativeHandle(void* handle) {
+    assert(!_nativeHandle && "Handle is already set");
+    _nativeHandle = handle;
+    if (handle) {
+        setAssocPointer(transfer(handle), ViewHandleKey, this);
+    }
+}
+
+void View::requestLayout() {
+    NSView* view = transfer(nativeHandle());
+    [view setNeedsLayout:true];
+}
+
+void View::setSubviews(std::vector<std::unique_ptr<View>> views) {
+    NSView* native = transfer(nativeHandle());
+    NSArray* nativeSubviews = [native subviews];
+    for (NSView* subview in nativeSubviews) {
+        [subview removeFromSuperview];
+    }
+    setSubviewsWeak(PrivateViewKey, std::move(views));
+    for (auto* child: subviews()) {
+        [native addSubview:transfer(child->nativeHandle())];
+    }
+}
+
+void View::orderFront() {
+    NSView* __unsafe_unretained native = transfer(nativeHandle());
+    NSView* __unsafe_unretained superview = native.superview;
+    [superview
+        sortSubviewsUsingFunction:[](__kindof NSView* __unsafe_unretained a,
+                                     __kindof NSView* __unsafe_unretained b,
+                                     void* nativeHandle) {
+        NSView* __unsafe_unretained native = transfer(nativeHandle);
+        if (a == native) {
+            return NSOrderedDescending;
+        }
+        if (b == native) {
+            return NSOrderedAscending;
+        }
+        return NSOrderedSame;
+    }
+                          context:nativeHandle()];
+}
+
 template <EventType ID, size_t Index = 0, auto... DerivedIDs>
 struct DerivedEventTypeListImpl:
     std::conditional_t<csp::impl::IDIsConcrete<(EventType)Index> &&
@@ -381,13 +419,17 @@ View* View::addSubview(std::unique_ptr<View> view) {
 
 // MARK: - StackView
 
-EVENT_VIEW_SUBCLASS(EventView, NSView)
-
 StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
-    NSView* view = [[EventView alloc] init];
-    setNativeHandle(retain(view));
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor = nativeConstructor }),
+    axis(axis) {
     setSubviews(std::move(children));
+}
+
+void* StackView::nativeConstructor(ViewOptions const&) {
+    NSView* view = [[EventView alloc] init];
+    return retain(view);
 }
 
 // MARK: - ScrollView
@@ -395,18 +437,24 @@ StackView::StackView(Axis axis, std::vector<std::unique_ptr<View>> children):
 EVENT_VIEW_SUBCLASS(EventScrollView, NSScrollView)
 
 ScrollView::ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor = std::bind_front(nativeConstructor, axis) }),
+    axis(axis) {
+    NSScrollView* native = transfer(nativeHandle());
     setSubviewsWeak(PrivateViewKey, std::move(children));
+    for (auto* subview: subviews()) {
+        [native.documentView addSubview:transfer(subview->nativeHandle())];
+    }
+}
+
+void* ScrollView::nativeConstructor(Axis axis, ViewOptions const&) {
     NSView* content = [[NSView alloc] init];
     NSScrollView* scrollView = [[EventScrollView alloc] init];
-    for (auto* child: subviews()) {
-        NSView* childView = transfer(child->nativeHandle());
-        [content addSubview:childView];
-    }
     [scrollView setDocumentView:content];
     scrollView.hasHorizontalScroller = axis == Axis::X;
     scrollView.hasVerticalScroller = axis == Axis::Y;
-    setNativeHandle(retain(scrollView));
+    return retain(scrollView);
 }
 
 void ScrollView::setDocumentSize(Size size) {
@@ -467,19 +515,22 @@ static SplitViewDelegate* const gSplitViewDelegate =
     [[SplitViewDelegate alloc] init];
 
 SplitView::SplitView(Axis axis, std::vector<std::unique_ptr<View>> children):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }), axis(axis) {
-    setSubviewsWeak(PrivateViewKey, std::move(children));
-    AetherSplitView* view = [[AetherSplitView alloc] init];
-    view.arrangesAllSubviews = NO;
-    view.This = this;
-    view.vertical = axis == Axis::X;
-    for (auto* child: subviews()) {
-        [view addArrangedSubview:transfer(child->nativeHandle())];
-    }
-    setNativeHandle(retain(view));
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor =
+               std::bind_front(nativeConstructor, this, axis) }),
+    axis(axis) {
+    setSubviews(std::move(children));
     setSplitterStyle(_splitterStyle);
-    static void const* const DelegateKey = &DelegateKey;
+}
+
+void* SplitView::nativeConstructor(SplitView* This, Axis axis,
+                                   ViewOptions const&) {
+    AetherSplitView* view = [[AetherSplitView alloc] init];
+    view.This = This;
+    view.vertical = axis == Axis::X;
     [view setDelegate:gSplitViewDelegate];
+    return retain(view);
 }
 
 static NSSplitViewDividerStyle toNS(SplitterStyle style) {
@@ -666,19 +717,25 @@ static NSTabViewBorderType toNS(TabViewBorder border) {
 EVENT_VIEW_SUBCLASS(EventTabView, NSTabView)
 
 TabView::TabView(std::vector<TabViewElement> elems):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }),
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor = nativeConstructor }),
     elements(std::move(elems)) {
-    NSTabView* view = [[EventTabView alloc] init];
-    view.tabPosition = toNS(_tabPosition);
-    view.tabViewBorderType = toNS(_border);
-    setNativeHandle(retain(view));
+    NSTabView* native = transfer(nativeHandle());
+    native.tabPosition = toNS(_tabPosition);
+    native.tabViewBorderType = toNS(_border);
     for (auto& [title, child]: elements) {
         child->_parent = this;
         NSTabViewItem* item = [[NSTabViewItem alloc] init];
         item.view = transfer(child->nativeHandle());
         item.label = toNSString(title);
-        [view addTabViewItem:item];
+        [native addTabViewItem:item];
     }
+}
+
+void* TabView::nativeConstructor(ViewOptions const&) {
+    NSTabView* view = [[EventTabView alloc] init];
+    return retain(view);
 }
 
 void TabView::setTabPosition(TabPosition position) {
@@ -798,16 +855,19 @@ NSString* makeButtonTitle(std::string_view title, ButtonType type,
 
 EVENT_VIEW_SUBCLASS(EventButtonView, NSButton)
 
+static void* buttonCtor(ViewOptions const&) {
+    NSButton* button = [[EventButtonView alloc] init];
+    return retain(button);
+}
+
 ButtonView::ButtonView(std::string label, std::function<void()> action,
                        ButtonType type):
-    View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static },
-         MinSize({ 80, 34 })),
+    View({ .minSize = { 80, 34 }, .nativeConstructor = buttonCtor }),
     _type(type),
     _label(std::move(label)),
     _action(std::move(action)) {
-    NSButton* button = [[EventButtonView alloc] init];
+    NSButton* button = transfer(nativeHandle());
     button.buttonType = toNS(type);
-    setNativeHandle(retain(button));
     setBezelStyle(_bezelStyle);
     [button setActionBlock:^{
         if (_action) {
@@ -834,10 +894,13 @@ void ButtonView::setLabel(std::string label) {
 
 EVENT_VIEW_SUBCLASS(EventSwitchView, NSSwitch)
 
-SwitchView::SwitchView():
-    View(PrivateViewKey, { LayoutMode::Static, LayoutMode::Static }) {
+static void* switchCtor(ViewOptions const&) {
     NSSwitch* view = [[EventSwitchView alloc] init];
-    setNativeHandle(retain(view));
+    return retain(view);
+}
+
+SwitchView::SwitchView(): View({ .nativeConstructor = switchCtor }) {
+    NSView* view = transfer(nativeHandle());
     setMinSize(fromNSSize(view.intrinsicContentSize));
 }
 
@@ -845,15 +908,21 @@ SwitchView::SwitchView():
 
 EVENT_VIEW_SUBCLASS(EventTextField, NSTextField)
 
+static void* textFieldCtor(ViewOptions const&) {
+    NSTextField* view = [[EventTextField alloc] init];
+    return retain(view);
+}
+
 TextFieldView::TextFieldView(std::string defaultText):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
-         MinSize({ 80, 32 })) {
-    NSTextField* view =
-        [EventTextField textFieldWithString:toNSString(defaultText)];
+    View({ .minSize = { 80, 32 },
+           .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Static,
+           .nativeConstructor = textFieldCtor }) {
+    NSTextField* view = transfer(nativeHandle());
+    view.stringValue = toNSString(defaultText);
     view.bezelStyle = NSTextFieldRoundedBezel;
     setAttribute<ViewAttributeKey::PaddingX>(6);
     setAttribute<ViewAttributeKey::PaddingY>(6);
-    setNativeHandle(retain(view));
 }
 
 void TextFieldView::setText(std::string /* text */) {
@@ -868,12 +937,17 @@ std::string TextFieldView::getText() const {
 
 // MARK: - LabelView
 
-LabelView::LabelView(std::string text):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Static },
-         MinSize({ 80, 22 })) {
-    NSTextField* field = [EventTextField labelWithString:toNSString(text)];
-    setNativeHandle(retain(field));
+static void* labelCtor(NSString* text, ViewOptions const&) {
+    NSTextField* view = [EventTextField labelWithString:text];
+    return retain(view);
 }
+
+LabelView::LabelView(std::string text):
+    View({ .minSize = { 80, 22 },
+           .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Static,
+           .nativeConstructor =
+               std::bind_front(labelCtor, toNSString(text)) }) {}
 
 void LabelView::setText(std::string text) {
     NSTextField* field = transfer(nativeHandle());
@@ -884,23 +958,39 @@ void LabelView::setText(std::string text) {
 
 EVENT_VIEW_SUBCLASS(EventProgressIndicator, NSProgressIndicator)
 
-ProgressIndicatorView::ProgressIndicatorView(Style style):
-    View(PrivateViewKey, { style == Bar ? LayoutMode::Flex : LayoutMode::Static,
-                           LayoutMode::Static }) {
-    NSProgressIndicator* view = [[EventProgressIndicator alloc] init];
+static NSProgressIndicatorStyle toNS(ProgressIndicatorView::Style style) {
+    using enum ProgressIndicatorView::Style;
     switch (style) {
     case Bar:
-        view.style = NSProgressIndicatorStyleBar;
-        setMinSize({ 0, 10 });
-        break;
+        return NSProgressIndicatorStyleBar;
     case Spinner:
-        view.style = NSProgressIndicatorStyleSpinning;
-        setMinSize({ 20, 20 });
-        break;
+        return NSProgressIndicatorStyleSpinning;
     }
-    [view startAnimation:nil];
-    setNativeHandle(retain(view));
 }
+
+static void* progressCtor(ProgressIndicatorView::Style style,
+                          ViewOptions const&) {
+    NSProgressIndicator* view = [[EventProgressIndicator alloc] init];
+    view.style = toNS(style);
+    [view startAnimation:nil];
+    return retain(view);
+}
+
+static xui::Size progressMinSize(ProgressIndicatorView::Style style) {
+    using enum ProgressIndicatorView::Style;
+    switch (style) {
+    case Bar:
+        return { 0, 10 };
+    case Spinner:
+        return { 20, 20 };
+    }
+}
+
+ProgressIndicatorView::ProgressIndicatorView(Style style):
+    View({ .minSize = progressMinSize(style),
+           .layoutModeX = style == Bar ? LayoutMode::Flex : LayoutMode::Static,
+           .layoutModeY = LayoutMode::Static,
+           .nativeConstructor = std::bind_front(progressCtor, style) }) {}
 
 // MARK: - ColorView
 
@@ -934,47 +1024,15 @@ ProgressIndicatorView::ProgressIndicatorView(Style style):
 }
 @end
 
-ColorView::ColorView(Color const& color):
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex }) {
-    FlatColorView* view =
-        [[FlatColorView alloc] initWithColor:toNSColor(color)];
-    setNativeHandle(retain(view));
+static void* colorViewCtor(NSColor* color, ViewOptions const&) {
+    FlatColorView* view = [[FlatColorView alloc] initWithColor:color];
+    return retain(view);
 }
+
+ColorView::ColorView(Color const& color):
+    View({ .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor =
+               std::bind_front(colorViewCtor, toNSColor(color)) }) {}
 
 void ColorView::doLayout(Rect frame) { setFrame(frame); }
-
-// MARK: - Custom view
-
-struct View::CustomImpl {
-    static void draw(View& view, Rect frame) { view.draw(frame); }
-};
-
-@interface AetherCustomView: EventView
-@end
-@implementation AetherCustomView
-
-- (void)drawRect:(NSRect)dirtyRect {
-    View::CustomImpl::draw(*getView(self),
-                           fromAppkitCoords(dirtyRect, self.frame.size.height));
-    CGFloat cornerRadius = 10.0;
-    NSRect rect = NSInsetRect({ {}, self.bounds.size }, 2.0, 2.0);
-    NSBezierPath* roundedRect = [NSBezierPath
-        bezierPathWithRoundedRect:rect
-                          xRadius:cornerRadius
-                          yRadius:cornerRadius];
-    [[NSColor blackColor] setStroke];
-    [roundedRect setLineWidth:2.0];
-    [roundedRect stroke];
-}
-
-- (BOOL)clipsToBounds {
-    return YES;
-}
-@end
-
-View::View(Vec2<LayoutMode> layoutMode, detail::MinSize minSize,
-           detail::PrefSize prefSize, detail::MaxSize maxSize):
-    View(PrivateViewKey, layoutMode, minSize, prefSize, maxSize) {
-    AetherCustomView* native = [[AetherCustomView alloc] init];
-    setNativeHandle(retain(native));
-}

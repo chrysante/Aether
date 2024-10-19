@@ -240,15 +240,22 @@ struct Position: Vec<double, 2> {
     Position(Vec2<double> v): Vec(v) {}
 };
 
-struct Size: Vec<double, 2> {
-    using Vec::Vec;
-    constexpr Size(Vec2<double> v): Vec(v) {}
+template <typename T, size_t N>
+struct SizeT: Vec<T, N> {
+private:
+    using Base = Vec<T, N>;
 
-    constexpr double& width() { return x; }
-    constexpr double width() const { return x; }
-    constexpr double& height() { return y; }
-    constexpr double height() const { return y; }
+public:
+    using Base::Base;
+    constexpr SizeT(Base v): Base(v) {}
+
+    constexpr T& width() { return this->x; }
+    constexpr T const& width() const { return this->x; }
+    constexpr T& height() { return this->y; }
+    constexpr T const& height() const { return this->y; }
 };
+
+using Size = SizeT<double, 2>;
 
 struct Rect: Position, Size {
     Position& pos() { return *this; };
@@ -451,6 +458,17 @@ template <typename T, size_t N>
 MoveOnlyVector<T> toMoveOnlyVector(T (&&elems)[N]) {
     return MoveOnlyVector<T>(std::move(elems));
 }
+
+namespace detail {
+
+/// Function object that calls `.get()` on its argument and returns the result
+struct GetT {
+    constexpr decltype(auto) operator()(auto&& p) const {
+        return std::forward<decltype(p)>(p).get();
+    }
+} inline constexpr Get{};
+
+} // namespace detail
 
 } // namespace xui
 

@@ -11,19 +11,40 @@
 #include <unordered_map>
 #include <vector>
 
+#include <utl/function_view.hpp>
+
 #include <Aether/ADT.h>
 #include <Aether/Event.h>
 #include <Aether/ViewProperties.h>
 
 namespace xui {
 
+class View;
+struct ViewOptions;
+
 namespace detail {
 
-struct DerefT {
-    constexpr decltype(auto) operator()(auto&& p) const {
-        return std::forward<decltype(p)>(p).get();
-    }
-} inline constexpr Get{};
+void* defaultNativeConstructor(ViewOptions const&);
+
+}
+
+struct ViewOptions {
+    /// Minimum size the view requires to be drawn
+    Size minSize = Size(0);
+    /// Preferred size
+    SizeT<std::optional<double>, 2> preferredSize = {};
+    /// Maximum size
+    Size maxSize = Size(std::numeric_limits<double>::infinity());
+    ///
+    LayoutMode layoutModeX = LayoutMode::Static;
+    ///
+    LayoutMode layoutModeY = LayoutMode::Static;
+    ///
+    utl::function_view<void*(ViewOptions const&)> nativeConstructor =
+        detail::defaultNativeConstructor;
+};
+
+namespace detail {
 
 struct PrivateViewKeyT {
     static PrivateViewKeyT const Instance;
@@ -35,38 +56,13 @@ private:
 constexpr PrivateViewKeyT PrivateViewKeyT::Instance{};
 inline constexpr PrivateViewKeyT PrivateViewKey = PrivateViewKeyT::Instance;
 
-static double doubleValOr(double value, double fallback) {
+inline double doubleValOr(double value, double fallback) {
     return std::isnan(value) ? fallback : value;
 }
 
 inline double valOrNan(std::optional<double> value) {
     return value.value_or(std::numeric_limits<double>::quiet_NaN());
 }
-
-inline namespace viewProperties {
-
-struct MinSize {
-    explicit MinSize(Size value = { 0, 0 }): value(value) {}
-
-    Size value;
-};
-
-struct MaxSize {
-    explicit MaxSize(
-        Size value = Size(std::numeric_limits<double>::infinity())):
-        value(value) {}
-
-    Size value;
-};
-
-struct PrefSize {
-    PrefSize(Vec2<std::optional<double>> value = {}):
-        value(valOrNan(value.x), valOrNan(value.y)) {}
-
-    Size value;
-};
-
-} // namespace viewProperties
 
 } // namespace detail
 
@@ -184,15 +180,7 @@ public:
     struct CustomImpl;
 
 protected:
-    View(Vec2<LayoutMode> layoutMode,
-         detail::MinSize minSize = detail::MinSize(),
-         detail::PrefSize prefSize = detail::PrefSize(),
-         detail::MaxSize maxSize = detail::MaxSize());
-
-    View(detail::PrivateViewKeyT, Vec2<LayoutMode> layoutMode,
-         detail::MinSize minSize = detail::MinSize(),
-         detail::PrefSize prefSize = detail::PrefSize(),
-         detail::MaxSize maxSize = detail::MaxSize());
+    View(ViewOptions const& options = {});
 
     void setNativeHandle(void* handle);
 
@@ -253,6 +241,8 @@ public:
     StackView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
 private:
+    static void* nativeConstructor(ViewOptions const&);
+
     void doLayout(Rect frame) override;
 
     Axis axis;
@@ -305,6 +295,8 @@ public:
     ScrollView(Axis axis, std::vector<std::unique_ptr<View>> children);
 
 private:
+    static void* nativeConstructor(Axis, ViewOptions const&);
+
     void doLayout(Rect frame) override;
     bool setFrame(Rect frame) override;
     void setDocumentSize(Size size);
@@ -360,6 +352,8 @@ private:
                                   size_t dividerIndex) const;
 
 private:
+    static void* nativeConstructor(SplitView*, Axis, ViewOptions const&);
+
     void doLayout(Rect frame) override;
 
     double sizeWithoutDividers() const;
@@ -428,6 +422,8 @@ public:
     void setBorder(TabViewBorder border);
 
 private:
+    static void* nativeConstructor(ViewOptions const&);
+
     void doLayout(Rect frame) override;
 
     TabPosition _tabPosition = TabPosition::Top;

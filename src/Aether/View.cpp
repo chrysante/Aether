@@ -8,15 +8,16 @@
 
 using namespace xui;
 
-using namespace detail::viewProperties;
 using detail::PrivateViewKey;
 
-View::View(detail::PrivateViewKeyT, Vec2<LayoutMode> layoutMode,
-           MinSize minSize, PrefSize prefSize, MaxSize maxSize):
-    _layoutMode(layoutMode),
-    _minSize(minSize.value),
-    _maxSize(maxSize.value),
-    _prefSize(prefSize.value) {}
+View::View(ViewOptions const& options):
+    _layoutMode({ options.layoutModeX, options.layoutModeY }),
+    _minSize(options.minSize),
+    _maxSize(options.maxSize),
+    _prefSize{ detail::valOrNan(options.preferredSize.width()),
+               detail::valOrNan(options.preferredSize.height()) } {
+    setNativeHandle(options.nativeConstructor(options));
+}
 
 void View::layout(Rect frame) {
     if (auto padding = getAttribute<ViewAttributeKey::PaddingX>()) {
@@ -52,8 +53,10 @@ void View::setSubviewsWeak(detail::PrivateViewKeyT,
 static constexpr Size SpacerMinSize = { 5, 5 };
 
 SpacerView::SpacerView():
-    View(PrivateViewKey, { LayoutMode::Flex, LayoutMode::Flex },
-         MinSize(SpacerMinSize)) {}
+    View({ .minSize = SpacerMinSize,
+           .layoutModeX = LayoutMode::Flex,
+           .layoutModeY = LayoutMode::Flex,
+           .nativeConstructor = [](auto&) { return nullptr; } }) {}
 
 std::unique_ptr<SpacerView> xui::Spacer() {
     return std::make_unique<SpacerView>();
