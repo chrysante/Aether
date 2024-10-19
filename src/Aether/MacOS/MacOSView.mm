@@ -248,6 +248,7 @@ EVENT_VIEW_SUBCLASS(EventView, NSView)
 
 struct View::CustomImpl {
     static void draw(View& view, Rect frame) { view.draw(frame); }
+    static bool clipsToBounds(View const& view) { return view.clipsToBounds(); }
 };
 
 @interface AetherDefaultView: EventView
@@ -257,19 +258,17 @@ struct View::CustomImpl {
 - (void)drawRect:(NSRect)dirtyRect {
     View::CustomImpl::draw(*getView(self),
                            fromAppkitCoords(dirtyRect, self.frame.size.height));
-    CGFloat cornerRadius = 10.0;
-    NSRect rect = NSInsetRect({ {}, self.bounds.size }, 2.0, 2.0);
-    NSBezierPath* roundedRect = [NSBezierPath
-        bezierPathWithRoundedRect:rect
-                          xRadius:cornerRadius
-                          yRadius:cornerRadius];
-    [[NSColor blackColor] setStroke];
-    [roundedRect setLineWidth:2.0];
-    [roundedRect stroke];
+}
+
+- (void)setFrame:(NSRect)frame {
+    [super setFrame:frame];
+    if (self.wantsLayer) {
+        self.layer.frame = frame;
+    }
 }
 
 - (BOOL)clipsToBounds {
-    return YES;
+    return View::CustomImpl::clipsToBounds(*getView(self));
 }
 @end
 
@@ -301,11 +300,6 @@ void View::setNativeHandle(void* handle) {
     if (handle) {
         setAssocPointer(transfer(handle), ViewHandleKey, this);
     }
-}
-
-void View::requestLayout() {
-    NSView* view = transfer(nativeHandle());
-    [view setNeedsLayout:true];
 }
 
 void View::setSubviews(std::vector<std::unique_ptr<View>> views) {

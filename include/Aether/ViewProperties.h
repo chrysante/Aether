@@ -1,9 +1,13 @@
 #ifndef AETHER_VIEWPROPERTIES_H
 #define AETHER_VIEWPROPERTIES_H
 
+#include <memory>
+
 #include <utl/common.hpp>
 
 namespace xui {
+
+class DrawingContext;
 
 enum class AlignX { Left, Center, Right };
 enum class AlignY { Top, Center, Bottom };
@@ -43,7 +47,8 @@ enum class MouseTrackingActivity {
     X(PaddingX, double)                                                        \
     X(PaddingY, double)                                                        \
     X(AlignX, AlignX)                                                          \
-    X(AlignY, AlignY)
+    X(AlignY, AlignY)                                                          \
+    X(DrawingContext, std::shared_ptr<DrawingContext>)
 
 enum class ViewAttributeKey {
 #define X(Name, Type) Name,

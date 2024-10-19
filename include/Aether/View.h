@@ -21,6 +21,7 @@ namespace xui {
 
 class View;
 struct ViewOptions;
+class DrawingContext;
 
 namespace detail {
 
@@ -65,6 +66,14 @@ inline double valOrNan(std::optional<double> value) {
 }
 
 } // namespace detail
+
+///
+struct ShadowConfig {
+    double shadowOpacity = 0.5;
+    double shadowRadius = 10.0;
+    Vec2<double> shadowOffset = { 0, -5 };
+    Color shadowColor = Color::Black();
+};
 
 /// Base class of all views
 class View: public WeakRefCountableBase<View> {
@@ -186,8 +195,6 @@ protected:
 
     virtual bool setFrame(Rect frame);
 
-    void requestLayout();
-
     View* addSubview(std::unique_ptr<View> view);
 
     template <std::derived_from<View> V>
@@ -202,6 +209,10 @@ protected:
     void setSubviewsWeak(detail::PrivateViewKeyT,
                          std::vector<std::unique_ptr<View>> views);
 
+    DrawingContext* getDrawingContext();
+
+    void setShadow(ShadowConfig config = {});
+
 private:
     friend class TabView; // To set _parent
 
@@ -214,6 +225,8 @@ private:
     virtual void doLayout(Rect frame) = 0;
 
     virtual void draw(Rect) {}
+
+    virtual bool clipsToBounds() const { return true; }
 
     View* _parent = nullptr;
     void* _nativeHandle = nullptr;

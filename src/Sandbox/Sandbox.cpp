@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <Aether/Application.h>
+#include <Aether/DrawingContext.h>
 #include <Aether/Modifiers.h>
 #include <Aether/Toolbar.h>
 #include <Aether/View.h>
@@ -18,6 +19,7 @@ public:
             Button("Two", [] { std::cout << "Two\n"; }),
         }));
         setPreferredSize({ 200, 100 });
+        setShadow();
         onEvent([this](MouseDownEvent const& e) {
             if (e.mouseButton() == MouseButton::Left) {
                 orderFront();
@@ -39,7 +41,15 @@ private:
     void doLayout(xui::Rect frame) override {
         setFrame(frame);
         stack->layout({ {}, frame.size() });
+        draw({});
     }
+
+    void draw(xui::Rect) override {
+        auto* ctx = getDrawingContext();
+        ctx->draw();
+    }
+
+    bool clipsToBounds() const override { return false; }
 
     WeakRef<View> stack;
     Vec2<double> pos = {};
@@ -95,7 +105,8 @@ struct Sandbox: Application {
 
     std::unique_ptr<View> Sidebar() {
         return VStack({ VStack({}) | PreferredHeight(38) | YStatic(),
-                        VScrollView({ Button("A"), Button("B") }) |
+                        VScrollView(
+                            { Button("A") | XFlex(), Button("B") | XFlex() }) |
                             NoBackground }) |
                BlendBehindWindow;
     }

@@ -11,6 +11,7 @@ set(SOURCE_FILES
 set(HEADER_FILES
     include/Aether/ADT.h
     include/Aether/Application.h
+    include/Aether/DrawingContext.h
     include/Aether/Event.h
     include/Aether/Event.def
     include/Aether/Modifiers.h
@@ -24,6 +25,7 @@ add_library(Aether SHARED)
 
 if(APPLE)
     list(APPEND SOURCE_FILES
+        src/Aether/MacOS/MacOSDrawingContext.mm
         src/Aether/MacOS/MacOSMain.mm
         src/Aether/MacOS/MacOSToolbar.mm
         src/Aether/MacOS/MacOSUtil.h
@@ -34,6 +36,8 @@ if(APPLE)
     target_compile_options(Aether PRIVATE -fobjc-arc)
     target_link_libraries(Aether PRIVATE 
         "-framework AppKit"
+        "-framework Metal"
+        "-framework QuartzCore"
     )
 endif() # APPLE
 

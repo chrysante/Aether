@@ -274,6 +274,14 @@ constexpr Rect merge(Rect const& A, Rect const& B) {
 struct Color: Vec<double, 4> {
     using Vec::Vec;
 
+    static constexpr Color White(double alpha = 1.0) {
+        return { 1, 1, 1, alpha };
+    }
+
+    static constexpr Color Black(double alpha = 1.0) {
+        return { 0, 0, 0, alpha };
+    }
+
     static constexpr Color Red(double alpha = 1.0) {
         return { 1, 0, 0, alpha };
     }
