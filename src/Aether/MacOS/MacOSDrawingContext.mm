@@ -65,6 +65,7 @@ MacOSDrawingContext::MacOSDrawingContext(View* view):
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     metalLayer.contentsScale = nativeView.window.backingScaleFactor;
     metalLayer.contentsGravity = kCAGravityTopLeft;
+    metalLayer.opaque = NO;
     createRenderingState();
 }
 
@@ -151,7 +152,7 @@ void MacOSDrawingContext::draw() {
     passDescriptor.colorAttachments[0].texture = tex;
     passDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
     passDescriptor.colorAttachments[0].clearColor =
-        MTLClearColorMake(0.0, 0.5, 0.5, 1.0);
+        MTLClearColorMake(0, 0, 0, 0);
     passDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
     id<MTLCommandBuffer> commandBuffer = [commandQueue commandBuffer];
     id<MTLRenderCommandEncoder> encoder =

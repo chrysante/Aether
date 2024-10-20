@@ -7,6 +7,7 @@
 #include <Aether/Window.h>
 
 using namespace xui;
+using namespace vml::short_types;
 
 namespace {
 
@@ -173,16 +174,9 @@ std::unique_ptr<View> UITest::DetailPanel() {
 namespace {
 
 struct DrawView: public View {
-    void doLayout(xui::Rect frame) override {
-        setFrame(frame);
-        //        draw({});
-    }
-
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
-
-        // Pentagon
-        {
+        { // Pentagon
             Point line[] = { { 90.0, 50.0 },
                              { 62.36, 88.04 },
                              { 17.64, 73.51 },
@@ -190,9 +184,7 @@ struct DrawView: public View {
                              { 62.36, 11.96 } };
             ctx->addLine(line, { .width = 10, .closed = true });
         }
-
-        // Open pentagon
-        {
+        { // Open pentagon
             Point line[] = {
                 { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
                 { 117.64, 26.49 }, { 162.36, 11.96 },
@@ -203,9 +195,7 @@ struct DrawView: public View {
                            .beginCap = { .style = LineCapOptions::Circle },
                            .endCap = { .style = LineCapOptions::Circle } });
         }
-
-        // Single segment
-        {
+        { // Single segment
             Point line[] = { { 220, 30 }, { 220, 70 } };
             ctx->addLine(line,
                          { .width = 30,
@@ -213,7 +203,31 @@ struct DrawView: public View {
                            .beginCap = { .style = LineCapOptions::Circle },
                            .endCap = { .style = LineCapOptions::Circle } });
         }
-
+        { // Bezier curve
+            std::vector<xui::Point> line;
+            float2 base = { 300, 20 };
+            std::array<float2, 4> controlPoints = {
+                base + float2{ 0, 0 },
+                base + float2{ 100, 0 },
+                base + float2{ 0, 100 },
+                base + float2{ 100, 100 },
+            };
+            bezierPath(std::begin(controlPoints), std::end(controlPoints),
+                       [&](float2 point) { line.push_back(point); },
+                       { .numSegments = 20 });
+            controlPoints = {
+                base + float2{ 100, 100 },
+                base + float2{ 200, 100 },
+                base + float2{ 100, 0 },
+                base + float2{ 200, 0 },
+            };
+            bezierPath(std::begin(controlPoints), std::end(controlPoints),
+                       [&](float2 point) { line.push_back(point); },
+                       { .numSegments = 20, .emitFirstPoint = false });
+            ctx->addLine(line, { .width = 10,
+                                 .beginCap = { LineCapOptions::Circle },
+                                 .endCap = { LineCapOptions::Circle } });
+        }
         ctx->draw();
     }
 };

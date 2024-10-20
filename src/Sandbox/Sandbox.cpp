@@ -3,21 +3,20 @@
 #include <Aether/Application.h>
 #include <Aether/DrawingContext.h>
 #include <Aether/Modifiers.h>
+#include <Aether/Shapes.h>
 #include <Aether/Toolbar.h>
 #include <Aether/View.h>
 #include <Aether/Window.h>
 
 using namespace xui;
+using namespace vml::short_types;
 
 namespace {
 
 class NodeView: public View {
 public:
     explicit NodeView(Vec2<double> pos): pos(pos) {
-        stack = addSubview(VStack({
-            //            Button("One", [] { std::cout << "One\n"; }),
-            //            Button("Two", [] { std::cout << "Two\n"; }),
-        }));
+        stack = addSubview(VStack({}));
         setPreferredSize({ 300, 100 });
         setShadow();
         onEvent([this](MouseDownEvent const& e) {
@@ -47,14 +46,20 @@ private:
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
 
-        // Pentagon
         {
-            Point line[] = { { 90.0, 50.0 },
-                             { 62.36, 88.04 },
-                             { 17.64, 73.51 },
-                             { 17.64, 26.49 },
-                             { 62.36, 11.96 } };
-            ctx->addLine(line, { .width = 10, .closed = true });
+            std::vector<xui::Point> line;
+            float2 controlPoints[] = {
+                float2{ 10 } + float2{ 0, 0 },
+                float2{ 10 } + float2{ 100, 0 },
+                float2{ 10 } + float2{ 0, 100 },
+                float2{ 10 } + float2{ 100, 100 },
+            };
+            bezierPath(std::begin(controlPoints), std::end(controlPoints),
+                       [&](float2 point) { line.push_back(point); },
+                       { .numSegments = 20 });
+            ctx->addLine(line, { .width = 10,
+                                 .beginCap = { LineCapOptions::Circle },
+                                 .endCap = { LineCapOptions::Circle } });
         }
 
         ctx->draw();

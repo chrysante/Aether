@@ -1,14 +1,44 @@
 #ifndef AETHER_SHAPES_H
 #define AETHER_SHAPES_H
 
+#include <algorithm>
 #include <concepts>
 #include <ranges>
+#include <span>
 #include <type_traits>
 #include <vector>
 
+#include <alloca.h>
 #include <vml/vml.hpp>
 
 namespace xui {
+
+struct BezierOptions {
+    int numSegments = 30;
+    bool emitFirstPoint = true;
+    bool emitLastPoint = true;
+};
+
+template <typename FloatType = float, std::random_access_iterator Itr,
+          std::sentinel_for<Itr> S,
+          std::invocable<vml::vector2<FloatType>> VertexEmitter>
+void bezierPath(Itr begin, S end, VertexEmitter vertexEmitter,
+                BezierOptions options) {
+    using VecType = vml::vector2<FloatType>;
+    size_t count = std::distance(begin, end);
+    VecType* data = (VecType*)alloca(count * sizeof(VecType));
+    int numIterations = options.numSegments - (options.emitLastPoint ? 0 : 1);
+    for (int s = options.emitFirstPoint ? 0 : 1; s <= numIterations; ++s) {
+        FloatType t = FloatType(s) / options.numSegments;
+        std::ranges::copy(begin, end, data);
+        for (size_t j = 1; j < count; ++j) {
+            for (size_t i = 0; i < count - j; ++i) {
+                data[i] = (1 - t) * data[i] + t * data[i + 1];
+            }
+        }
+        vertexEmitter(data[0]);
+    }
+}
 
 struct LineCapOptions {
     enum Style { None, Circle };
@@ -29,7 +59,7 @@ template <std::unsigned_integral IndexType = uint32_t,
           std::invocable<IndexType> IndexEmitter>
 void buildLineMesh(Itr begin, S end, VertexEmitter vertexEmitter,
                    IndexEmitter indexEmitter, LineMeshOptions options) {
-    using VecType = vml::vector<FloatType, 2>;
+    using VecType = vml::vector2<FloatType>;
     if (begin == end) {
         return;
     }
