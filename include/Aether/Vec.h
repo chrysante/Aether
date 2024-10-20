@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <tuple>
 
 namespace xui {
@@ -228,6 +229,28 @@ constexpr T const& get(Vec<T, N> const& v) {
 template <size_t I, typename T, size_t N>
 constexpr T& get(Vec<T, N>& v) {
     return const_cast<T&>(get<I>(std::as_const(v)));
+}
+
+template <typename T, size_t N>
+constexpr T dot(Vec<T, N> const& a, Vec<T, N> const& b) {
+    return [&]<size_t... I>(std::index_sequence<I...>) {
+        return (... + (a[I] * b[I]));
+    }(std::make_index_sequence<N>{});
+}
+
+template <typename T, size_t N>
+constexpr T length_squared(Vec<T, N> const& a) {
+    return dot(a, a);
+}
+
+template <typename T, size_t N>
+constexpr T length(Vec<T, N> const& a) {
+    return std::sqrt(length_squared(a));
+}
+
+template <typename T, size_t N>
+constexpr Vec<T, N> normalize(Vec<T, N> const& v) {
+    return v / length(v);
 }
 
 } // namespace xui

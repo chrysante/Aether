@@ -15,8 +15,8 @@ class NodeView: public View {
 public:
     explicit NodeView(Vec2<double> pos): pos(pos) {
         stack = addSubview(VStack({
-            Button("One", [] { std::cout << "One\n"; }),
-            Button("Two", [] { std::cout << "Two\n"; }),
+            //            Button("One", [] { std::cout << "One\n"; }),
+            //            Button("Two", [] { std::cout << "Two\n"; }),
         }));
         setPreferredSize({ 200, 100 });
         setShadow();
@@ -46,6 +46,26 @@ private:
 
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
+
+        // Pentagon
+        {
+            Point line[] = { { 90.0, 50.0 },
+                             { 62.36, 88.04 },
+                             { 17.64, 73.51 },
+                             { 17.64, 26.49 },
+                             { 62.36, 11.96 } };
+            ctx->addLine(line, { .width = 10, .closed = true });
+        }
+
+        //
+        {
+            Point line[] = {
+                { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
+                { 117.64, 26.49 }, { 162.36, 11.96 },
+            };
+            ctx->addLine(line, { .width = 10, .closed = false });
+        }
+
         ctx->draw();
     }
 
@@ -99,7 +119,7 @@ struct Sandbox: Application {
     }
 
     void createWindow() {
-        window = xui::window("My Window", { { 100, 100 }, { 500, 500 } },
+        window = xui::window("My Window", { { 100, 100 }, { 1000, 800 } },
                              { .fullSizeContentView = true });
     }
 
@@ -112,8 +132,7 @@ struct Sandbox: Application {
     }
 
     std::unique_ptr<View> makeNodeEditor() {
-        return HSplit({ Sidebar(), std::make_unique<NodeEditorView>(),
-                        Sidebar() }) |
+        return HSplit({ Sidebar(), std::make_unique<NodeEditorView>() }) |
                SplitViewResizeStrategy::CutRight;
     }
 
