@@ -63,7 +63,10 @@ private:
                 { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
                 { 117.64, 26.49 }, { 162.36, 11.96 },
             };
-            ctx->addLine(line, { .width = 10, .closed = false });
+            ctx->addLine(line, { .width = 10,
+                                 .closed = false,
+                                 .beginCap = { .style = LineCapOptions::Circle,
+                                               .numSegments = 10 } });
         }
 
         ctx->draw();
