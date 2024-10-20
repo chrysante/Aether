@@ -14,6 +14,7 @@ public:
 
     virtual void addLine(std::span<Point const> points,
                          LineMeshOptions const& options) = 0;
+    virtual void addPolygon(std::span<Point const> points) = 0;
 
     virtual void draw() = 0;
 };

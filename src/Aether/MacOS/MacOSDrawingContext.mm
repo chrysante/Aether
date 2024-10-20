@@ -48,6 +48,7 @@ struct MacOSDrawingContext: DrawingContext {
 
     void addLine(std::span<xui::Point const> points,
                  LineMeshOptions const& options) final;
+    void addPolygon(std::span<xui::Point const> points) final;
 
     void draw() final;
 
@@ -130,6 +131,17 @@ void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
     buildLineMesh(floatPoints.begin(), floatPoints.end(), [&](float2 pos) {
         vertexStorage.push_back(pos);
     }, [&](uint32_t index) { indexStorage.push_back(index); }, options);
+    drawCall.endVertex = vertexStorage.size();
+    drawCall.endIndex = indexStorage.size();
+    drawCalls.push_back(drawCall);
+}
+
+void MacOSDrawingContext::addPolygon(std::span<xui::Point const> points) {
+    DrawCall drawCall{ .beginVertex = vertexStorage.size(),
+                       .beginIndex = indexStorage.size() };
+    std::ranges::copy(points, std::back_inserter(vertexStorage));
+    triangulatePolygon(points.begin(), points.end(),
+                       [&](uint32_t index) { indexStorage.push_back(index); });
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
     drawCalls.push_back(drawCall);

@@ -47,19 +47,12 @@ private:
         auto* ctx = getDrawingContext();
 
         {
-            std::vector<xui::Point> line;
-            float2 controlPoints[] = {
-                float2{ 10 } + float2{ 0, 0 },
-                float2{ 10 } + float2{ 100, 0 },
-                float2{ 10 } + float2{ 0, 100 },
-                float2{ 10 } + float2{ 100, 100 },
-            };
-            bezierPath(std::begin(controlPoints), std::end(controlPoints),
-                       [&](float2 point) { line.push_back(point); },
-                       { .numSegments = 20 });
-            ctx->addLine(line, { .width = 10,
-                                 .beginCap = { LineCapOptions::Circle },
-                                 .endCap = { LineCapOptions::Circle } });
+            Point poly[] = { { 90.0, 50.0 },
+                             { 62.36, 88.04 },
+                             { 17.64, 73.51 },
+                             { 17.64, 26.49 },
+                             { 62.36, 11.96 } };
+            ctx->addPolygon(poly);
         }
 
         ctx->draw();

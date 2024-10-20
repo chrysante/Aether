@@ -172,6 +172,80 @@ void buildLineMesh(Itr begin, S end, VertexEmitter vertexEmitter,
                 numSegmentVertices - 2);
 }
 
+namespace detail {
+
+template <typename VecType>
+auto signedArea(VecType p1, VecType p2, VecType p3) {
+    return (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
+}
+
+template <typename VecType>
+bool isPointInTriangle(VecType p, VecType a, VecType b, VecType c) {
+    auto area1 = signedArea(p, a, b);
+    auto area2 = signedArea(p, b, c);
+    auto area3 = signedArea(p, c, a);
+    return (area1 > 0 && area2 > 0 && area3 > 0) ||
+           (area1 < 0 && area2 < 0 && area3 < 0);
+}
+
+template <typename VecType>
+bool isConvex(VecType prev, VecType curr, VecType next) {
+    return signedArea(prev, curr, next) > 0;
+}
+
+bool isEar(auto begin, auto end, size_t prev, size_t curr, size_t next) {
+    if (!isConvex(*(begin + prev), *(begin + curr), *(begin + next))) {
+        return false;
+    }
+    size_t i = 0;
+    for (auto itr = begin; itr != end; ++itr, ++i) {
+        if (i == prev || i == curr || i == next) {
+            continue;
+        }
+        if (isPointInTriangle(*(begin + i), *(begin + prev), *(begin + curr),
+                              *(begin + next)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace detail
+
+template <std::unsigned_integral IndexType = uint32_t, std::input_iterator Itr,
+          std::sentinel_for<Itr> S, std::invocable<IndexType> IndexEmitter>
+void triangulatePolygon(Itr begin, S end, IndexEmitter indexEmitter) {
+    using namespace detail;
+    size_t vertexCount = std::ranges::distance(begin, end);
+    std::vector<IndexType> vertexIndices;
+    vertexIndices.reserve(vertexCount);
+    for (IndexType i = 0; i < vertexCount; ++i) {
+        vertexIndices.push_back(i);
+    }
+    while (vertexIndices.size() > 3) {
+        size_t n = vertexIndices.size();
+        for (size_t i = 0; i < n; ++i) {
+            IndexType prev = vertexIndices[(i + n - 1) % n];
+            IndexType curr = vertexIndices[i];
+            IndexType next = vertexIndices[(i + 1) % n];
+            if (isEar(begin, end, prev, curr, next)) {
+                indexEmitter(prev);
+                indexEmitter(curr);
+                indexEmitter(next);
+                vertexIndices.erase(vertexIndices.begin() + i);
+                goto end;
+            }
+        }
+        throw std::runtime_error("No ear found, possibly degenerate polygon");
+end:
+        (void)0;
+    }
+    indexEmitter(vertexIndices[0]);
+    indexEmitter(vertexIndices[1]);
+    indexEmitter(vertexIndices[2]);
+}
+
 } // namespace xui
 
 #endif // AETHER_SHAPES_H
