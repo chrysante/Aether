@@ -223,9 +223,9 @@ private:
     void clearAttributeImpl(ViewAttributeKey key);
     std::any getAttributeImpl(ViewAttributeKey key) const;
 
-    virtual void doLayout(Rect frame) = 0;
+    virtual void doLayout(Rect frame);
 
-    virtual void draw(Rect) {}
+    virtual void draw(Rect);
 
     virtual bool clipsToBounds() const { return true; }
 

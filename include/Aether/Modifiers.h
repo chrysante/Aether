@@ -149,7 +149,7 @@ struct AttribKeyFn {
 
 private:
     friend void applyModifier(AttribKeyFn obj, ViewType& view) {
-        view.setAttribute<Key>(obj.value);
+        view.template setAttribute<Key>(obj.value);
     }
 
     bool value = true;

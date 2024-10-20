@@ -18,7 +18,7 @@ public:
             //            Button("One", [] { std::cout << "One\n"; }),
             //            Button("Two", [] { std::cout << "Two\n"; }),
         }));
-        setPreferredSize({ 200, 100 });
+        setPreferredSize({ 300, 100 });
         setShadow();
         onEvent([this](MouseDownEvent const& e) {
             if (e.mouseButton() == MouseButton::Left) {
@@ -55,18 +55,6 @@ private:
                              { 17.64, 26.49 },
                              { 62.36, 11.96 } };
             ctx->addLine(line, { .width = 10, .closed = true });
-        }
-
-        //
-        {
-            Point line[] = {
-                { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
-                { 117.64, 26.49 }, { 162.36, 11.96 },
-            };
-            ctx->addLine(line, { .width = 10,
-                                 .closed = false,
-                                 .beginCap = { .style = LineCapOptions::Circle,
-                                               .numSegments = 10 } });
         }
 
         ctx->draw();

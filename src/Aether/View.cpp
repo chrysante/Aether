@@ -50,6 +50,10 @@ void View::setSubviewsWeak(detail::PrivateViewKeyT,
     }
 }
 
+void View::doLayout(Rect frame) { setFrame(frame); }
+
+void View::draw(Rect) {}
+
 static constexpr Size SpacerMinSize = { 5, 5 };
 
 SpacerView::SpacerView():

@@ -255,16 +255,15 @@ struct View::CustomImpl {
 @end
 @implementation AetherDefaultView
 
-- (void)drawRect:(NSRect)dirtyRect {
-    View::CustomImpl::draw(*getView(self),
-                           fromAppkitCoords(dirtyRect, self.frame.size.height));
+- (void)viewWillMoveToWindow:(NSWindow*)window {
+    if (self.wantsLayer) {
+        self.layer.contentsScale = window.backingScaleFactor;
+    }
 }
 
-- (void)setFrame:(NSRect)frame {
-    [super setFrame:frame];
-    if (self.wantsLayer) {
-        self.layer.frame = frame;
-    }
+- (void)layout {
+    [super layout];
+    View::CustomImpl::draw(*getView(self), {});
 }
 
 - (BOOL)clipsToBounds {

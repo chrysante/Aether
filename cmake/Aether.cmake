@@ -59,6 +59,7 @@ target_link_libraries(Aether
 PUBLIC
     csp
     utility
+    vml
 PRIVATE
     range-v3
     WarningFlags

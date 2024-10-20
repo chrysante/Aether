@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <Aether/Application.h>
+#include <Aether/DrawingContext.h>
 #include <Aether/Modifiers.h>
 #include <Aether/View.h>
 #include <Aether/Window.h>
@@ -16,9 +17,10 @@ struct UITest: Application {
     std::unique_ptr<View> TestView();
     std::unique_ptr<View> Sidebar();
     std::unique_ptr<View> DetailPanel();
+    std::unique_ptr<View> DrawTest();
 
     std::unique_ptr<Window> window;
-    Position windowPos{};
+    Point windowPos{};
     WeakRef<TextFieldView> textField;
     WeakRef<SplitView> splitView;
 };
@@ -27,8 +29,9 @@ struct UITest: Application {
 
 UITest::UITest() {
     window = xui::window("UI Test", { { 100, 100 }, { 800, 600 } });
-    window->setContentView(
-        Tab({ { "Buttons", ButtonsTest() }, { "Test View", TestView() } }));
+    window->setContentView(Tab({ { "Buttons", ButtonsTest() },
+                                 { "Test View", TestView() },
+                                 { "Drawing", DrawTest() } }));
 }
 
 std::unique_ptr<View> UITest::ButtonsTest() {
@@ -165,6 +168,60 @@ std::unique_ptr<View> UITest::DetailPanel() {
           ProgressSpinner() | MinSize({ 38, 38 }) | PaddingX(8),
           TextField("Input") | AssignTo(textField),
           std::make_unique<SwitchView>(), LabelledSwitch("Some Switch") });
+}
+
+namespace {
+
+struct DrawView: public View {
+    void doLayout(xui::Rect frame) override {
+        setFrame(frame);
+        //        draw({});
+    }
+
+    void draw(xui::Rect) override {
+        auto* ctx = getDrawingContext();
+
+        // Pentagon
+        {
+            Point line[] = { { 90.0, 50.0 },
+                             { 62.36, 88.04 },
+                             { 17.64, 73.51 },
+                             { 17.64, 26.49 },
+                             { 62.36, 11.96 } };
+            ctx->addLine(line, { .width = 10, .closed = true });
+        }
+
+        // Open pentagon
+        {
+            Point line[] = {
+                { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
+                { 117.64, 26.49 }, { 162.36, 11.96 },
+            };
+            ctx->addLine(line,
+                         { .width = 10,
+                           .closed = false,
+                           .beginCap = { .style = LineCapOptions::Circle },
+                           .endCap = { .style = LineCapOptions::Circle } });
+        }
+
+        // Single segment
+        {
+            Point line[] = { { 220, 30 }, { 220, 70 } };
+            ctx->addLine(line,
+                         { .width = 30,
+                           .closed = false,
+                           .beginCap = { .style = LineCapOptions::Circle },
+                           .endCap = { .style = LineCapOptions::Circle } });
+        }
+
+        ctx->draw();
+    }
+};
+
+} // namespace
+
+std::unique_ptr<View> UITest::DrawTest() {
+    return std::make_unique<DrawView>();
 }
 
 std::unique_ptr<Application> xui::createApplication() {

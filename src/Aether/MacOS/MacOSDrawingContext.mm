@@ -6,12 +6,14 @@
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <vml/vml.hpp>
 
 #include "Aether/MacOS/MacOSUtil.h"
 #include "Aether/Shapes.h"
 #include "Aether/View.h"
 
 using namespace xui;
+using namespace vml::short_types;
 
 static constexpr size_t VertexSize = sizeof(Vec2<float>);
 static constexpr size_t IndexSize = 4;
@@ -37,7 +39,7 @@ struct MacOSDrawingContext: DrawingContext {
     id<MTLBuffer> transformMatrixBuffer;
 
     //
-    std::vector<Vec2<float>> vertexStorage;
+    std::vector<float2> vertexStorage;
     std::vector<uint32_t> indexStorage;
     std::vector<DrawCall> drawCalls;
 
@@ -61,6 +63,8 @@ MacOSDrawingContext::MacOSDrawingContext(View* view):
     metalLayer = [[CAMetalLayer alloc] init];
     metalLayer.device = device;
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    metalLayer.contentsScale = nativeView.window.backingScaleFactor;
+    metalLayer.contentsGravity = kCAGravityTopLeft;
     createRenderingState();
 }
 
@@ -119,13 +123,12 @@ void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
                                   LineMeshOptions const& options) {
     auto floatPoints =
         points |
-        std::views::transform([](auto const& p) -> Vec2<float> { return p; });
+        std::views::transform([](auto const& p) -> vml::float2 { return p; });
     DrawCall drawCall{ .beginVertex = vertexStorage.size(),
                        .beginIndex = indexStorage.size() };
-    buildLineMesh<uint32_t, Vec2<float>>(floatPoints.begin(), floatPoints.end(),
-                                         std::back_inserter(vertexStorage),
-                                         std::back_inserter(indexStorage),
-                                         options);
+    buildLineMesh(floatPoints.begin(), floatPoints.end(), [&](float2 pos) {
+        vertexStorage.push_back(pos);
+    }, [&](uint32_t index) { indexStorage.push_back(index); }, options);
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
     drawCalls.push_back(drawCall);
@@ -133,6 +136,12 @@ void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
 
 void MacOSDrawingContext::draw() {
     if (!pipeline) return;
+    CGSize newSize = nativeView.bounds.size;
+    newSize.width *= metalLayer.contentsScale;
+    newSize.height *= metalLayer.contentsScale;
+    if (!CGSizeEqualToSize(metalLayer.drawableSize, newSize)) {
+        metalLayer.drawableSize = newSize;
+    }
     id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
     if (!drawable) return;
     uploadDrawData();
@@ -202,7 +211,7 @@ void MacOSDrawingContext::uploadDrawData() {
     uploadData(device, &transformMatrixBuffer, transform, sizeof(transform));
 }
 
-static DrawingContext* createDrawingContext(View& view) {
+static MacOSDrawingContext* createDrawingContext(View& view) {
     view.setAttribute<ViewAttributeKey::DrawingContext>(
         std::make_shared<MacOSDrawingContext>(&view));
     auto opt = view.getAttribute<ViewAttributeKey::DrawingContext>();
