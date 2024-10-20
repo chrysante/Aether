@@ -3,6 +3,7 @@ set(SOURCE_FILES
     src/Aether/Application.cpp
     src/Aether/Main.cpp
     src/Aether/Modifiers.cpp
+    src/Aether/Shapes.cpp
     src/Aether/Toolbar.cpp
     src/Aether/View.cpp
     src/Aether/ViewUtil.h
@@ -15,7 +16,9 @@ set(HEADER_FILES
     include/Aether/Event.h
     include/Aether/Event.def
     include/Aether/Modifiers.h
+    include/Aether/Shapes.h
     include/Aether/Toolbar.h
+    include/Aether/Vec.h
     include/Aether/View.h
     include/Aether/ViewProperties.h
     include/Aether/Window.h

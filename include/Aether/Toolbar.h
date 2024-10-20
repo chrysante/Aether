@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <Aether/ADT.h>
+#include <Aether/Vec.h>
 
 namespace xui {
 

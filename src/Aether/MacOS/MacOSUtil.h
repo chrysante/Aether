@@ -8,6 +8,7 @@
 #import <Foundation/Foundation.h>
 
 #include "Aether/ADT.h"
+#include "Aether/Vec.h"
 
 namespace xui {
 

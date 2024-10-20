@@ -6,6 +6,8 @@
 
 #include <csp.hpp>
 
+#include <Aether/Vec.h>
+
 namespace xui {
 
 class Window;

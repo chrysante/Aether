@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <Aether/ADT.h>
+#include <Aether/Vec.h>
 #include <Aether/View.h>
 
 namespace xui {

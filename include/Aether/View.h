@@ -15,6 +15,7 @@
 
 #include <Aether/ADT.h>
 #include <Aether/Event.h>
+#include <Aether/Vec.h>
 #include <Aether/ViewProperties.h>
 
 namespace xui {

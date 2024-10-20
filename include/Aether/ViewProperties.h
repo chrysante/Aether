@@ -9,6 +9,8 @@ namespace xui {
 
 class DrawingContext;
 
+enum class LayoutMode { Static, Flex };
+
 enum class AlignX { Left, Center, Right };
 enum class AlignY { Top, Center, Bottom };
 
