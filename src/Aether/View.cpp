@@ -4,6 +4,7 @@
 
 #include <range/v3/view.hpp>
 
+#include "Aether/DrawingContext.h"
 #include "Aether/ViewUtil.h"
 
 using namespace xui;
@@ -53,6 +54,18 @@ void View::setSubviewsWeak(detail::PrivateViewKeyT,
 void View::doLayout(Rect frame) { setFrame(frame); }
 
 void View::draw(Rect) {}
+
+DrawingContext* View::getDrawingContext() {
+    auto ctx = getAttribute<ViewAttributeKey::DrawingContext>();
+    if (ctx) {
+        return ctx->get();
+    }
+    setAttribute<ViewAttributeKey::DrawingContext>(
+        std::make_shared<DrawingContext>(this));
+    auto opt = getAttribute<ViewAttributeKey::DrawingContext>();
+    assert(opt);
+    return opt->get();
+}
 
 static constexpr Size SpacerMinSize = { 5, 5 };
 

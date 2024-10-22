@@ -6,26 +6,19 @@
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
-#import <vml/vml.hpp>
 
 #include "Aether/MacOS/MacOSUtil.h"
-#include "Aether/Shapes.h"
 #include "Aether/View.h"
 
 using namespace xui;
 using namespace vml::short_types;
 
-static constexpr size_t VertexSize = sizeof(Vec2<float>);
-static constexpr size_t IndexSize = 4;
+static constexpr size_t VertexSize = sizeof(float2);
+static constexpr size_t IndexSize = sizeof(uint32_t);
 
 namespace {
 
-struct DrawCall {
-    size_t beginVertex, endVertex;
-    size_t beginIndex, endIndex;
-};
-
-struct MacOSDrawingContext: DrawingContext {
+struct MacOSRenderer: xui::Renderer {
     id<MTLDevice> device;
     id<MTLCommandQueue> commandQueue;
     CAMetalLayer* metalLayer;
@@ -38,38 +31,20 @@ struct MacOSDrawingContext: DrawingContext {
     id<MTLBuffer> indexBuffer;
     id<MTLBuffer> transformMatrixBuffer;
 
-    //
-    std::vector<float2> vertexStorage;
-    std::vector<uint32_t> indexStorage;
-    std::vector<DrawCall> drawCalls;
-
-    MacOSDrawingContext(View* view);
+    MacOSRenderer(View* view);
     void createRenderingState();
 
-    void addDrawCall(DrawCall const& dc);
-    auto vertexEmitter() {
-        return [this](float2 p) { vertexStorage.push_back(p); };
-    }
-    auto triangleEmitter() {
-        return [this](uint32_t a, uint32_t b, uint32_t c) {
-            indexStorage.push_back(a);
-            indexStorage.push_back(b);
-            indexStorage.push_back(c);
-        };
-    }
+    void render(std::span<float2 const> vertices,
+                std::span<uint32_t const> indices,
+                std::span<DrawCall const> drawCalls) final;
 
-    void addLine(std::span<vml::float2 const> points,
-                 LineMeshOptions const& options) final;
-    void addPolygon(std::span<vml::float2 const> points) final;
-
-    void draw() final;
-
-    void uploadDrawData();
+    void uploadDrawData(std::span<float2 const> vertices,
+                        std::span<uint32_t const> indices);
 };
 
 } // namespace
 
-MacOSDrawingContext::MacOSDrawingContext(View* view):
+MacOSRenderer::MacOSRenderer(View* view):
     view(view), nativeView(transfer(view->nativeHandle())) {
     device = MTLCreateSystemDefaultDevice();
     commandQueue = [device newCommandQueue];
@@ -79,6 +54,8 @@ MacOSDrawingContext::MacOSDrawingContext(View* view):
     metalLayer.contentsScale = nativeView.window.backingScaleFactor;
     metalLayer.contentsGravity = kCAGravityTopLeft;
     metalLayer.opaque = NO;
+    nativeView.layer = metalLayer;
+    nativeView.wantsLayer = YES;
     createRenderingState();
 }
 
@@ -129,38 +106,13 @@ static id<MTLRenderPipelineState> createPipeline(id<MTLDevice> device) {
     return pipelineState;
 }
 
-void MacOSDrawingContext::createRenderingState() {
+void MacOSRenderer::createRenderingState() {
     pipeline = createPipeline(device);
 }
 
-void MacOSDrawingContext::addDrawCall(DrawCall const& dc) {
-    if (dc.beginVertex == dc.endVertex || dc.beginIndex == dc.endIndex) {
-        return;
-    }
-    drawCalls.push_back(dc);
-}
-
-void MacOSDrawingContext::addLine(std::span<vml::float2 const> points,
-                                  LineMeshOptions const& options) {
-    DrawCall drawCall{ .beginVertex = vertexStorage.size(),
-                       .beginIndex = indexStorage.size() };
-    buildLineMesh(points, vertexEmitter(), triangleEmitter(), options);
-    drawCall.endVertex = vertexStorage.size();
-    drawCall.endIndex = indexStorage.size();
-    addDrawCall(drawCall);
-}
-
-void MacOSDrawingContext::addPolygon(std::span<vml::float2 const> points) {
-    DrawCall drawCall{ .beginVertex = vertexStorage.size(),
-                       .beginIndex = indexStorage.size() };
-    std::ranges::copy(points, std::back_inserter(vertexStorage));
-    triangulatePolygon(points, triangleEmitter());
-    drawCall.endVertex = vertexStorage.size();
-    drawCall.endIndex = indexStorage.size();
-    addDrawCall(drawCall);
-}
-
-void MacOSDrawingContext::draw() {
+void MacOSRenderer::render(std::span<float2 const> vertices,
+                           std::span<uint32_t const> indices,
+                           std::span<DrawCall const> drawCalls) {
     if (!pipeline) return;
     CGSize newSize = nativeView.bounds.size;
     newSize.width *= metalLayer.contentsScale;
@@ -170,7 +122,7 @@ void MacOSDrawingContext::draw() {
     }
     id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
     if (!drawable) return;
-    uploadDrawData();
+    uploadDrawData(vertices, indices);
     MTLRenderPassDescriptor* passDescriptor =
         [MTLRenderPassDescriptor renderPassDescriptor];
     id<MTLTexture> tex = drawable.texture;
@@ -199,15 +151,10 @@ void MacOSDrawingContext::draw() {
     [encoder endEncoding];
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-
-    // Reset
-    drawCalls.clear();
-    vertexStorage.clear();
-    indexStorage.clear();
 }
 
 static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
-                       void* data, size_t size) {
+                       void const* data, size_t size) {
     if ((!*buffer && size > 0) || (*buffer).length < size) {
         *buffer = [device newBufferWithBytes:data
                                       length:size
@@ -217,11 +164,12 @@ static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
     std::memcpy([*buffer contents], data, size);
 }
 
-void MacOSDrawingContext::uploadDrawData() {
-    uploadData(device, &vertexBuffer, vertexStorage.data(),
-               vertexStorage.size() * VertexSize);
-    uploadData(device, &indexBuffer, indexStorage.data(),
-               indexStorage.size() * IndexSize);
+void MacOSRenderer::uploadDrawData(std::span<float2 const> vertices,
+                                   std::span<uint32_t const> indices) {
+    uploadData(device, &vertexBuffer, vertices.data(),
+               vertices.size() * VertexSize);
+    uploadData(device, &indexBuffer, indices.data(),
+               indices.size() * IndexSize);
     float l = 0;
     float r = view->size().width();
     float t = 0;
@@ -238,29 +186,13 @@ void MacOSDrawingContext::uploadDrawData() {
     uploadData(device, &transformMatrixBuffer, transform, sizeof(transform));
 }
 
-static MacOSDrawingContext* createDrawingContext(View& view) {
-    view.setAttribute<ViewAttributeKey::DrawingContext>(
-        std::make_shared<MacOSDrawingContext>(&view));
-    auto opt = view.getAttribute<ViewAttributeKey::DrawingContext>();
-    assert(opt);
-    MacOSDrawingContext* ctx = static_cast<MacOSDrawingContext*>(opt->get());
-    NSView* native = transfer(view.nativeHandle());
-    native.layer = ctx->metalLayer;
-    native.wantsLayer = YES;
-    return ctx;
-}
-
-DrawingContext* View::getDrawingContext() {
-    auto ctx = getAttribute<ViewAttributeKey::DrawingContext>();
-    if (ctx) {
-        return ctx->get();
-    }
-    return ::createDrawingContext(*this);
+std::unique_ptr<Renderer> xui::createRenderer(View* view) {
+    return std::make_unique<MacOSRenderer>(view);
 }
 
 void View::setShadow(ShadowConfig config) {
-    ::createDrawingContext(*this);
     NSView* native = transfer(nativeHandle());
+    (void)getDrawingContext();
     native.layer.shadowOpacity = config.shadowOpacity;
     native.layer.shadowColor = [toNSColor(config.shadowColor) CGColor];
     native.layer.shadowOffset = toNSSize(config.shadowOffset);

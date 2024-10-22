@@ -2,7 +2,9 @@
 #define AETHER_ADT_H
 
 #include <algorithm>
+#include <any>
 #include <cassert>
+#include <concepts>
 #include <iosfwd>
 #include <memory>
 #include <span>
@@ -163,6 +165,8 @@ template <typename T, size_t N>
 MoveOnlyVector<T> toMoveOnlyVector(T (&&elems)[N]) {
     return MoveOnlyVector<T>(std::move(elems));
 }
+
+/// # Function objects
 
 namespace detail {
 

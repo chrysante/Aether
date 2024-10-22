@@ -1,6 +1,7 @@
 set(SOURCE_FILES
     src/Aether/ADT.cpp
     src/Aether/Application.cpp
+    src/Aether/DrawingContext.cpp
     src/Aether/Main.cpp
     src/Aether/Modifiers.cpp
     src/Aether/Shapes.cpp
@@ -28,7 +29,7 @@ add_library(Aether SHARED)
 
 if(APPLE)
     list(APPEND SOURCE_FILES
-        src/Aether/MacOS/MacOSDrawingContext.mm
+        src/Aether/MacOS/MacOSRenderer.mm
         src/Aether/MacOS/MacOSMain.mm
         src/Aether/MacOS/MacOSToolbar.mm
         src/Aether/MacOS/MacOSUtil.h
