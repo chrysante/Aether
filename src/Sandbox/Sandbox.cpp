@@ -1,4 +1,8 @@
 #include <iostream>
+#include <span>
+#include <vector>
+
+#include <utl/vector.hpp>
 
 #include <Aether/Application.h>
 #include <Aether/DrawingContext.h>
@@ -12,6 +16,65 @@ using namespace xui;
 using namespace vml::short_types;
 
 namespace {
+
+class Pin {};
+
+class InputPin: public Pin {};
+
+class OutputPin: public Pin {};
+
+class Node {
+public:
+    Node(): _inputs(2), _outputs(2) {}
+
+    std::span<InputPin const> inputs() const { return _inputs; }
+    std::span<OutputPin const> outputs() const { return _outputs; }
+
+private:
+    utl::small_vector<InputPin> _inputs;
+    utl::small_vector<OutputPin> _outputs;
+};
+
+static Size computeMinSize(Node const& node) { return { 200, 100 }; }
+
+static std::vector<xui::Point> nodeShape(Node const& node, Size size) {
+    std::vector<xui::Point> result;
+    float const cornerRadius = 20;
+    float const pinSize = 30;
+    float const pinRadius = 10;
+    auto vertexEmitter = [&](float2 v) { result.push_back(v); };
+    static constexpr float pi = vml::constants<float>::pi;
+    pathCircleSegment({ 0, cornerRadius }, { cornerRadius, cornerRadius },
+                      pi / 2, vertexEmitter,
+                      { .orientation = CircleSegmentOptions::CW });
+    pathCircleSegment({ size.width() - cornerRadius, 0 },
+                      { size.width() - cornerRadius, cornerRadius }, pi / 2,
+                      vertexEmitter,
+                      { .orientation = CircleSegmentOptions::CW });
+    double cursor = cornerRadius;
+    for ([[maybe_unused]] auto& pin: node.outputs()) {
+        pathCircleSegment({ size.width(), cursor + pinSize / 2 - pinRadius },
+                          { size.width(), cursor + pinSize / 2 }, pi,
+                          vertexEmitter);
+        cursor += pinSize;
+    }
+    pathCircleSegment(float2{ size.width(), size.height() - cornerRadius },
+                      float2(size.width(), size.height()) -
+                          float2(cornerRadius),
+                      pi / 2, vertexEmitter,
+                      { .orientation = CircleSegmentOptions::CW });
+    pathCircleSegment({ cornerRadius, size.height() },
+                      { cornerRadius, size.height() - cornerRadius }, pi / 2,
+                      vertexEmitter,
+                      { .orientation = CircleSegmentOptions::CW });
+    cursor = cornerRadius + pinSize * node.inputs().size();
+    for ([[maybe_unused]] auto& pin: node.inputs()) {
+        pathCircleSegment({ 0, cursor - pinSize / 2 + pinRadius },
+                          { 0, cursor - pinSize / 2 }, pi, vertexEmitter);
+        cursor -= pinSize;
+    }
+    return result;
+}
 
 class NodeView: public View {
 public:
@@ -45,16 +108,8 @@ private:
 
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
-
-        {
-            Point poly[] = { { 90.0, 50.0 },
-                             { 62.36, 88.04 },
-                             { 17.64, 73.51 },
-                             { 17.64, 26.49 },
-                             { 62.36, 11.96 } };
-            ctx->addPolygon(poly);
-        }
-
+        auto shape = nodeShape(node, preferredSize());
+        ctx->addPolygon(shape);
         ctx->draw();
     }
 
@@ -62,6 +117,7 @@ private:
 
     WeakRef<View> stack;
     Vec2<double> pos = {};
+    Node node;
 };
 
 class NodeEditorView: public View {

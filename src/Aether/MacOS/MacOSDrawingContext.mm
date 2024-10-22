@@ -46,6 +46,8 @@ struct MacOSDrawingContext: DrawingContext {
     MacOSDrawingContext(View* view);
     void createRenderingState();
 
+    void addDrawCall(DrawCall const& dc);
+
     void addLine(std::span<xui::Point const> points,
                  LineMeshOptions const& options) final;
     void addPolygon(std::span<xui::Point const> points) final;
@@ -121,6 +123,13 @@ void MacOSDrawingContext::createRenderingState() {
     pipeline = createPipeline(device);
 }
 
+void MacOSDrawingContext::addDrawCall(DrawCall const& dc) {
+    if (dc.beginVertex == dc.endVertex || dc.beginIndex == dc.endIndex) {
+        return;
+    }
+    drawCalls.push_back(dc);
+}
+
 void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
                                   LineMeshOptions const& options) {
     auto floatPoints =
@@ -133,7 +142,7 @@ void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
     }, [&](uint32_t index) { indexStorage.push_back(index); }, options);
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
-    drawCalls.push_back(drawCall);
+    addDrawCall(drawCall);
 }
 
 void MacOSDrawingContext::addPolygon(std::span<xui::Point const> points) {
@@ -144,7 +153,7 @@ void MacOSDrawingContext::addPolygon(std::span<xui::Point const> points) {
                        [&](uint32_t index) { indexStorage.push_back(index); });
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
-    drawCalls.push_back(drawCall);
+    addDrawCall(drawCall);
 }
 
 void MacOSDrawingContext::draw() {
@@ -173,6 +182,7 @@ void MacOSDrawingContext::draw() {
     [encoder setCullMode:MTLCullModeBack];
     [encoder setVertexBuffer:vertexBuffer offset:0 atIndex:0];
     [encoder setVertexBuffer:transformMatrixBuffer offset:0 atIndex:1];
+    //    [encoder setTriangleFillMode:MTLTriangleFillModeLines];
     for (auto& drawCall: drawCalls) {
         [encoder setVertexBufferOffset:drawCall.beginVertex * VertexSize
                                atIndex:0];
@@ -194,7 +204,7 @@ void MacOSDrawingContext::draw() {
 
 static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
                        void* data, size_t size) {
-    if (!*buffer || (*buffer).length < size) {
+    if ((!*buffer && size > 0) || (*buffer).length < size) {
         *buffer = [device newBufferWithBytes:data
                                       length:size
                                      options:MTLResourceStorageModeShared];

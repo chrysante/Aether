@@ -21,10 +21,6 @@ static std::unique_ptr<xui::Application> gApp;
     return YES;
 }
 
-- (void)applicationWillTerminate:(NSNotification*)aNotification {
-    gApp.reset();
-}
-
 @end
 
 int macOSMain(int, char const**) {

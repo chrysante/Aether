@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <iostream>
 #include <ranges>
 #include <span>
 #include <type_traits>
@@ -22,7 +23,7 @@ struct BezierOptions {
 template <typename FloatType = float, std::random_access_iterator Itr,
           std::sentinel_for<Itr> S,
           std::invocable<vml::vector2<FloatType>> VertexEmitter>
-void bezierPath(Itr begin, S end, VertexEmitter vertexEmitter,
+void pathBezier(Itr begin, S end, VertexEmitter vertexEmitter,
                 BezierOptions options) {
     using VecType = vml::vector2<FloatType>;
     size_t count = std::distance(begin, end);
@@ -37,6 +38,30 @@ void bezierPath(Itr begin, S end, VertexEmitter vertexEmitter,
             }
         }
         vertexEmitter(data[0]);
+    }
+}
+
+struct CircleSegmentOptions {
+    enum Orientation { CCW = 0, CW = 1 };
+    Orientation orientation = CCW;
+    int numSegments = 20;
+    bool emitFirst = true;
+    bool emitLast = true;
+};
+
+template <typename FloatType = float,
+          std::invocable<vml::vector2<FloatType>> VertexEmitter>
+void pathCircleSegment(vml::vector2<FloatType> begin,
+                       vml::vector2<FloatType> origin, FloatType totalAngle,
+                       VertexEmitter vertexEmitter,
+                       CircleSegmentOptions options = {}) {
+    int end = options.numSegments - (options.emitLast ? 0 : 1);
+    int orientation = options.orientation == CircleSegmentOptions::CCW ? 1 : -1;
+    auto v = begin - origin;
+    for (int i = options.emitFirst ? 0 : 1; i <= end; ++i) {
+        FloatType angle =
+            orientation * totalAngle * FloatType(i) / options.numSegments;
+        vertexEmitter(origin + vml::rotate(v, angle));
     }
 }
 
@@ -133,12 +158,6 @@ void buildLineMesh(Itr begin, S end, VertexEmitter vertexEmitter,
         return;
     }
     emitVertices(pointIndex, *i, normalize(*i - *(i - 1)));
-
-    auto rotMatrix = [](FloatType angle) {
-        return vml::float2x2{ std::cos(angle), std::sin(angle),
-                              -std::sin(angle), std::cos(angle) };
-    };
-
     auto generateCap = [&](LineCapOptions const& cap, size_t pointIndex,
                            VecType point, VecType tangent, IndexType idxA,
                            IndexType idxB) {
@@ -152,7 +171,7 @@ void buildLineMesh(Itr begin, S end, VertexEmitter vertexEmitter,
             for (int i = 0; i < cap.numSegments; ++i) {
                 FloatType angle =
                     M_PI * (FloatType(i + 1) / (cap.numSegments + 1) - 0.5);
-                auto mat = rotMatrix(angle);
+                auto mat = vml::make_rotation2x2(angle);
                 emitVertex(point + options.width / 2 * (mat * tangent),
                            pointIndex);
                 if (i != cap.numSegments - 1) {
@@ -237,7 +256,8 @@ void triangulatePolygon(Itr begin, S end, IndexEmitter indexEmitter) {
                 goto end;
             }
         }
-        throw std::runtime_error("No ear found, possibly degenerate polygon");
+        std::cerr << "No ear found, possibly degenerate polygon\n";
+        return;
 end:
         (void)0;
     }

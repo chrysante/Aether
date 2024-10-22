@@ -212,7 +212,7 @@ struct DrawView: public View {
                 base + float2{ 0, 100 },
                 base + float2{ 100, 100 },
             };
-            bezierPath(std::begin(controlPoints), std::end(controlPoints),
+            pathBezier(std::begin(controlPoints), std::end(controlPoints),
                        [&](float2 point) { line.push_back(point); },
                        { .numSegments = 20 });
             controlPoints = {
@@ -221,7 +221,7 @@ struct DrawView: public View {
                 base + float2{ 100, 0 },
                 base + float2{ 200, 0 },
             };
-            bezierPath(std::begin(controlPoints), std::end(controlPoints),
+            pathBezier(std::begin(controlPoints), std::end(controlPoints),
                        [&](float2 point) { line.push_back(point); },
                        { .numSegments = 20, .emitFirstPoint = false });
             ctx->addLine(line, { .width = 10,
