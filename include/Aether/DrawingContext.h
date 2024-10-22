@@ -12,9 +12,9 @@ class DrawingContext {
 public:
     virtual ~DrawingContext() = default;
 
-    virtual void addLine(std::span<Point const> points,
+    virtual void addLine(std::span<vml::float2 const> points,
                          LineMeshOptions const& options) = 0;
-    virtual void addPolygon(std::span<Point const> points) = 0;
+    virtual void addPolygon(std::span<vml::float2 const> points) = 0;
 
     virtual void draw() = 0;
 };

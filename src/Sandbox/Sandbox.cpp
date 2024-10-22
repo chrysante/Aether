@@ -37,8 +37,8 @@ private:
 
 static Size computeMinSize(Node const& node) { return { 200, 100 }; }
 
-static std::vector<xui::Point> nodeShape(Node const& node, Size size) {
-    std::vector<xui::Point> result;
+static std::vector<float2> nodeShape(Node const& node, Size size) {
+    std::vector<float2> result;
     float const cornerRadius = 20;
     float const pinSize = 30;
     float const pinRadius = 10;

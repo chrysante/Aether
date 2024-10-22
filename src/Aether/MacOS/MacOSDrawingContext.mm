@@ -47,10 +47,20 @@ struct MacOSDrawingContext: DrawingContext {
     void createRenderingState();
 
     void addDrawCall(DrawCall const& dc);
+    auto vertexEmitter() {
+        return [this](float2 p) { vertexStorage.push_back(p); };
+    }
+    auto triangleEmitter() {
+        return [this](uint32_t a, uint32_t b, uint32_t c) {
+            indexStorage.push_back(a);
+            indexStorage.push_back(b);
+            indexStorage.push_back(c);
+        };
+    }
 
-    void addLine(std::span<xui::Point const> points,
+    void addLine(std::span<vml::float2 const> points,
                  LineMeshOptions const& options) final;
-    void addPolygon(std::span<xui::Point const> points) final;
+    void addPolygon(std::span<vml::float2 const> points) final;
 
     void draw() final;
 
@@ -130,27 +140,21 @@ void MacOSDrawingContext::addDrawCall(DrawCall const& dc) {
     drawCalls.push_back(dc);
 }
 
-void MacOSDrawingContext::addLine(std::span<xui::Point const> points,
+void MacOSDrawingContext::addLine(std::span<vml::float2 const> points,
                                   LineMeshOptions const& options) {
-    auto floatPoints =
-        points |
-        std::views::transform([](auto const& p) -> vml::float2 { return p; });
     DrawCall drawCall{ .beginVertex = vertexStorage.size(),
                        .beginIndex = indexStorage.size() };
-    buildLineMesh(floatPoints.begin(), floatPoints.end(), [&](float2 pos) {
-        vertexStorage.push_back(pos);
-    }, [&](uint32_t index) { indexStorage.push_back(index); }, options);
+    buildLineMesh(points, vertexEmitter(), triangleEmitter(), options);
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
     addDrawCall(drawCall);
 }
 
-void MacOSDrawingContext::addPolygon(std::span<xui::Point const> points) {
+void MacOSDrawingContext::addPolygon(std::span<vml::float2 const> points) {
     DrawCall drawCall{ .beginVertex = vertexStorage.size(),
                        .beginIndex = indexStorage.size() };
     std::ranges::copy(points, std::back_inserter(vertexStorage));
-    triangulatePolygon(points.begin(), points.end(),
-                       [&](uint32_t index) { indexStorage.push_back(index); });
+    triangulatePolygon(points, triangleEmitter());
     drawCall.endVertex = vertexStorage.size();
     drawCall.endIndex = indexStorage.size();
     addDrawCall(drawCall);
