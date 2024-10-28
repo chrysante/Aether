@@ -8,6 +8,8 @@
 
 namespace xui {
 
+enum class Orientation { Counterclockwise, Clockwise };
+
 struct BezierOptions {
     int numSegments = 30;
     bool emitFirstPoint = true;
@@ -19,8 +21,7 @@ void pathBezier(std::span<vml::float2 const> controlPoints,
                 BezierOptions options = {});
 
 struct CircleSegmentOptions {
-    enum Orientation { CCW = 0, CW = 1 };
-    Orientation orientation = CCW;
+    Orientation orientation = Orientation::Counterclockwise;
     int numSegments = 20;
     bool emitFirst = true;
     bool emitLast = true;
@@ -49,9 +50,20 @@ void buildLineMesh(
     utl::function_view<void(uint32_t, uint32_t, uint32_t)> triangleEmitter,
     LineMeshOptions options);
 
+struct TriangulationOptions {
+    /// Y monotone polygons are polygons for which each horizonal line only
+    /// intersects the polygon atmost twice. Y monotone polygons can be
+    /// triangulated in linear time
+    bool isYMonotone = false;
+
+    /// Required when `isYMonotone` is true
+    Orientation orientation = {};
+};
+
 void triangulatePolygon(
     std::span<vml::float2 const> vertices,
-    utl::function_view<void(uint32_t, uint32_t, uint32_t)> triangleEmitter);
+    utl::function_view<void(uint32_t, uint32_t, uint32_t)> triangleEmitter,
+    TriangulationOptions options = {});
 
 } // namespace xui
 

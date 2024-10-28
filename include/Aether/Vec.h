@@ -323,6 +323,10 @@ struct Color: Vec<double, 4> {
         return { 1, 1, 0, alpha };
     }
 
+    static constexpr Color Orange(double alpha = 1.0) {
+        return { 1, 0.5, 0, alpha };
+    }
+
     static constexpr Color Cyan(double alpha = 1.0) {
         return { 0, 1, 1, alpha };
     }

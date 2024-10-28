@@ -46,11 +46,10 @@ static std::vector<float2> nodeShape(Node const& node, Size size) {
     static constexpr float pi = vml::constants<float>::pi;
     pathCircleSegment({ 0, cornerRadius }, { cornerRadius, cornerRadius },
                       pi / 2, vertexEmitter,
-                      { .orientation = CircleSegmentOptions::CW });
+                      { .orientation = Orientation::Clockwise });
     pathCircleSegment({ size.width() - cornerRadius, 0 },
                       { size.width() - cornerRadius, cornerRadius }, pi / 2,
-                      vertexEmitter,
-                      { .orientation = CircleSegmentOptions::CW });
+                      vertexEmitter, { .orientation = Orientation::Clockwise });
     double cursor = cornerRadius;
     for ([[maybe_unused]] auto& pin: node.outputs()) {
         pathCircleSegment({ size.width(), cursor + pinSize / 2 - pinRadius },
@@ -62,11 +61,11 @@ static std::vector<float2> nodeShape(Node const& node, Size size) {
                       float2(size.width(), size.height()) -
                           float2(cornerRadius),
                       pi / 2, vertexEmitter,
-                      { .orientation = CircleSegmentOptions::CW });
+                      { .orientation = Orientation::Clockwise });
+    vertexEmitter({ size.width() - cornerRadius, size.height() });
     pathCircleSegment({ cornerRadius, size.height() },
                       { cornerRadius, size.height() - cornerRadius }, pi / 2,
-                      vertexEmitter,
-                      { .orientation = CircleSegmentOptions::CW });
+                      vertexEmitter, { .orientation = Orientation::Clockwise });
     cursor = cornerRadius + pinSize * node.inputs().size();
     for ([[maybe_unused]] auto& pin: node.inputs()) {
         pathCircleSegment({ 0, cursor - pinSize / 2 + pinRadius },
@@ -109,7 +108,9 @@ private:
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
         auto shape = nodeShape(node, preferredSize());
-        ctx->addPolygon(shape);
+        ctx->addPolygon(shape, { .color = { .9, .3, .1, 1 } },
+                        { .isYMonotone = true,
+                          .orientation = Orientation::Counterclockwise });
         ctx->draw();
     }
 
@@ -158,14 +159,14 @@ private:
 };
 
 struct Sandbox: Application {
-    Sandbox() {
-        createWindow();
-        window->setContentView(makeNodeEditor());
-    }
+    Sandbox() { createWindow()->setContentView(NodeEditor()); }
 
-    void createWindow() {
-        window = xui::window("My Window", { { 100, 100 }, { 1000, 800 } },
+    Window* createWindow() {
+        auto w = xui::window("My Window", { { 100, 100 }, { 1000, 800 } },
                              { .fullSizeContentView = true });
+        auto* ptr = w.get();
+        windows.push_back(std::move(w));
+        return ptr;
     }
 
     std::unique_ptr<View> Sidebar() {
@@ -176,25 +177,12 @@ struct Sandbox: Application {
                BlendBehindWindow;
     }
 
-    std::unique_ptr<View> makeNodeEditor() {
+    std::unique_ptr<View> NodeEditor() {
         return HSplit({ Sidebar(), std::make_unique<NodeEditorView>() }) |
                SplitViewResizeStrategy::CutRight;
     }
 
-    std::unique_ptr<View> OtherTestView() {
-        return VSplit({
-            HStack({}),
-            HStack({}) | OnEvent([](MouseDownEvent const&) {
-            std::cout << "Down\n";
-            return false;
-        }) | OnEvent([](MouseUpEvent const&) {
-            std::cout << "Up\n";
-            return false;
-        }),
-        });
-    }
-
-    std::unique_ptr<Window> window;
+    std::vector<std::unique_ptr<Window>> windows;
 };
 
 } // namespace

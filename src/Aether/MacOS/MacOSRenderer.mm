@@ -30,9 +30,11 @@ struct MacOSRenderer: xui::Renderer {
     id<MTLBuffer> vertexBuffer;
     id<MTLBuffer> indexBuffer;
     id<MTLBuffer> transformMatrixBuffer;
+    std::vector<id<MTLBuffer>> uniformBuffers;
 
     MacOSRenderer(View* view);
     void createRenderingState();
+    id<MTLBuffer> __strong* getUniformBuffer(size_t index);
 
     void render(std::span<float2 const> vertices,
                 std::span<uint32_t const> indices,
@@ -59,19 +61,32 @@ MacOSRenderer::MacOSRenderer(View* view):
     createRenderingState();
 }
 
+namespace {
+
+struct Uniforms {
+    vml::float4 color;
+};
+
+} // namespace
+
 constexpr auto ShaderSource = R"(
 #include <metal_stdlib>
 
 using namespace metal;
 
+struct Uniforms {
+    float4 color;
+};
+
 vertex float4 vertex_main(float2 device const* vertices [[buffer(0)]],
                           float4x4 device const& transform [[buffer(1)]],
+                          Uniforms device const& uniforms [[buffer(2)]],
                           uint vertexID [[vertex_id]]) {
     return transform * float4(vertices[vertexID], 0, 1);
 }
 
-fragment float4 fragment_main() {
-    return float4(1, 0, 0, 1);
+fragment float4 fragment_main(Uniforms device const& uniforms [[buffer(0)]]) {
+    return uniforms.color;
 }
 )";
 
@@ -110,6 +125,24 @@ void MacOSRenderer::createRenderingState() {
     pipeline = createPipeline(device);
 }
 
+id<MTLBuffer> __strong* MacOSRenderer::getUniformBuffer(size_t index) {
+    if (index >= uniformBuffers.size()) {
+        uniformBuffers.resize(std::max(index + 1, uniformBuffers.size() * 2));
+    }
+    return &uniformBuffers[index];
+}
+
+static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
+                       void const* data, size_t size) {
+    if ((!*buffer && size > 0) || (*buffer).length < size) {
+        *buffer = [device newBufferWithBytes:data
+                                      length:size
+                                     options:MTLResourceStorageModeShared];
+        return;
+    }
+    std::memcpy([*buffer contents], data, size);
+}
+
 void MacOSRenderer::render(std::span<float2 const> vertices,
                            std::span<uint32_t const> indices,
                            std::span<DrawCall const> drawCalls) {
@@ -135,11 +168,17 @@ void MacOSRenderer::render(std::span<float2 const> vertices,
     id<MTLRenderCommandEncoder> encoder =
         [commandBuffer renderCommandEncoderWithDescriptor:passDescriptor];
     [encoder setRenderPipelineState:pipeline];
-    [encoder setCullMode:MTLCullModeBack];
+    [encoder setCullMode:MTLCullModeNone];
     [encoder setVertexBuffer:vertexBuffer offset:0 atIndex:0];
     [encoder setVertexBuffer:transformMatrixBuffer offset:0 atIndex:1];
-    //    [encoder setTriangleFillMode:MTLTriangleFillModeLines];
-    for (auto& drawCall: drawCalls) {
+    for (size_t DCIndex = 0; auto& drawCall: drawCalls) {
+        auto* uniformBuffer = getUniformBuffer(DCIndex);
+        Uniforms uniformData = { .color = drawCall.options.color };
+        uploadData(device, uniformBuffer, &uniformData, sizeof uniformData);
+        [encoder setFragmentBuffer:*uniformBuffer offset:0 atIndex:0];
+        [encoder setTriangleFillMode:drawCall.options.wireframe ?
+                                         MTLTriangleFillModeLines :
+                                         MTLTriangleFillModeFill];
         [encoder setVertexBufferOffset:drawCall.beginVertex * VertexSize
                                atIndex:0];
         [encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
@@ -147,21 +186,11 @@ void MacOSRenderer::render(std::span<float2 const> vertices,
                              indexType:MTLIndexTypeUInt32
                            indexBuffer:indexBuffer
                      indexBufferOffset:drawCall.beginIndex * IndexSize];
+        ++DCIndex;
     }
     [encoder endEncoding];
     [commandBuffer presentDrawable:drawable];
     [commandBuffer commit];
-}
-
-static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
-                       void const* data, size_t size) {
-    if ((!*buffer && size > 0) || (*buffer).length < size) {
-        *buffer = [device newBufferWithBytes:data
-                                      length:size
-                                     options:MTLResourceStorageModeShared];
-        return;
-    }
-    std::memcpy([*buffer contents], data, size);
 }
 
 void MacOSRenderer::uploadDrawData(std::span<float2 const> vertices,

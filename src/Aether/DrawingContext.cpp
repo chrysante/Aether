@@ -10,25 +10,20 @@ void DrawingContext::addDrawCall(DrawCall dc) {
     drawCalls.push_back(dc);
 }
 
-auto DrawingContext::vertexEmitter() {
-    return [this](float2 p) { addVertex(p); };
-}
-
-auto DrawingContext::triangleEmitter() {
-    return [this](uint32_t a, uint32_t b, uint32_t c) { addTriangle(a, b, c); };
-}
-
 void DrawingContext::addLine(std::span<vml::float2 const> points,
-                             LineMeshOptions const& options) {
-    recordDrawCall([&] {
-        buildLineMesh(points, vertexEmitter(), triangleEmitter(), options);
+                             DrawCallOptions const& drawOptions,
+                             LineMeshOptions const& meshOptions) {
+    recordDrawCall(drawOptions, [&] {
+        buildLineMesh(points, vertexEmitter(), triangleEmitter(), meshOptions);
     });
 }
 
-void DrawingContext::addPolygon(std::span<vml::float2 const> points) {
-    recordDrawCall([&] {
+void DrawingContext::addPolygon(std::span<vml::float2 const> points,
+                                DrawCallOptions const& drawOptions,
+                                TriangulationOptions const& meshOptions) {
+    recordDrawCall(drawOptions, [&] {
         std::ranges::copy(points, std::back_inserter(vertices));
-        triangulatePolygon(points, triangleEmitter());
+        triangulatePolygon(points, triangleEmitter(), meshOptions);
     });
 }
 

@@ -13,9 +13,15 @@ namespace xui {
 
 class View;
 
+struct DrawCallOptions {
+    Color color = Color::Red();
+    bool wireframe = false;
+};
+
 struct DrawCall {
     size_t beginVertex, endVertex;
     size_t beginIndex, endIndex;
+    DrawCallOptions options = {};
 };
 
 /// Platform independent renderer interface
@@ -38,24 +44,33 @@ public:
 
     /// Creates a draw call that draws \p line
     void addLine(std::span<vml::float2 const> line,
-                 LineMeshOptions const& options);
+                 DrawCallOptions const& drawOptions = {},
+                 LineMeshOptions const& meshOptions = {});
 
     /// Creates a draw call that draws \p polygon
-    void addPolygon(std::span<vml::float2 const> polygon);
+    void addPolygon(std::span<vml::float2 const> polygon,
+                    DrawCallOptions const& drawOptions = {},
+                    TriangulationOptions const& meshOptions = {});
 
     /// Stateful rendering interface @{
 
     /// Invokes \p fn between a call to `beginDrawCall()` and `endDrawCall()`
     void recordDrawCall(std::invocable auto&& fn) {
-        beginDrawCall();
+        recordDrawCall({}, std::forward<decltype(fn)>(fn));
+    }
+
+    /// \overload
+    void recordDrawCall(DrawCallOptions options, std::invocable auto&& fn) {
+        beginDrawCall(options);
         std::invoke(fn);
         endDrawCall();
     }
 
     /// Starts recording a draw call
-    void beginDrawCall() {
+    void beginDrawCall(DrawCallOptions options = {}) {
         currentDC = { .beginVertex = vertices.size(),
-                      .beginIndex = indices.size() };
+                      .beginIndex = indices.size(),
+                      .options = options };
     }
 
     /// Adds a vertex to the currently recording draw call
@@ -75,6 +90,18 @@ public:
         addDrawCall(currentDC);
     }
 
+    /// \Returns a function that adds vertices to the current draw call
+    auto vertexEmitter() {
+        return [this](vml::float2 p) { addVertex(p); };
+    }
+
+    /// \Returns a function that adds triangles to the current draw call
+    auto triangleEmitter() {
+        return [this](uint32_t a, uint32_t b, uint32_t c) {
+            addTriangle(a, b, c);
+        };
+    }
+
     /// @}
 
     /// Draws the recorded draw calls
@@ -85,8 +112,6 @@ public:
 
 private:
     void addDrawCall(DrawCall drawCall);
-    auto vertexEmitter();
-    auto triangleEmitter();
 
     DrawCall currentDC{};
     std::unique_ptr<Renderer> renderer;

@@ -171,6 +171,12 @@ std::unique_ptr<View> UITest::DetailPanel() {
           std::make_unique<SwitchView>(), LabelledSwitch("Some Switch") });
 }
 
+static void addOffset(float2 offset, std::span<float2> points) {
+    for (auto& p: points) {
+        p += offset;
+    }
+}
+
 namespace {
 
 struct DrawView: public View {
@@ -182,14 +188,20 @@ struct DrawView: public View {
                               { 17.64, 73.51 },
                               { 17.64, 26.49 },
                               { 62.36, 11.96 } };
-            ctx->addLine(line, { .width = 10, .closed = true });
+            ctx->addLine(line, {}, { .width = 10, .closed = true });
+            addOffset({ 550, 0 }, line);
+            ctx->addPolygon(line, {}, { .isYMonotone = true });
+
+            addOffset({ 100, 0 }, line);
+            ctx->addPolygon(line);
         }
+
         { // Open pentagon
             float2 line[] = {
                 { 190.0, 50.0 },   { 162.36, 88.04 }, { 117.64, 73.51 },
                 { 117.64, 26.49 }, { 162.36, 11.96 },
             };
-            ctx->addLine(line,
+            ctx->addLine(line, {},
                          { .width = 10,
                            .closed = false,
                            .beginCap = { .style = LineCapOptions::Circle },
@@ -197,7 +209,7 @@ struct DrawView: public View {
         }
         { // Single segment
             float2 line[] = { { 220, 30 }, { 220, 70 } };
-            ctx->addLine(line,
+            ctx->addLine(line, {},
                          { .width = 30,
                            .closed = false,
                            .beginCap = { .style = LineCapOptions::Circle },
@@ -224,9 +236,38 @@ struct DrawView: public View {
             pathBezier(controlPoints, [&](float2 point) {
                 line.push_back(point);
             }, { .numSegments = 20, .emitFirstPoint = false });
-            ctx->addLine(line, { .width = 10,
-                                 .beginCap = { LineCapOptions::Circle },
-                                 .endCap = { LineCapOptions::Circle } });
+            ctx->addLine(line, {},
+                         { .width = 10,
+                           .beginCap = { LineCapOptions::Circle },
+                           .endCap = { LineCapOptions::Circle } });
+        }
+        { // Quad
+            float2 vertices[] = { { 20, 120 },
+                                  { 80, 120 },
+                                  { 80, 180 },
+                                  { 20, 180 } };
+            ctx->addPolygon(vertices, {}, { .isYMonotone = true });
+        }
+        { // More complex Y monotone polygon
+            float2 vertices[] = { { 49, 0 },   { 97, 126 }, { 92, 144 },
+                                  { 64, 151 }, { 48, 200 }, { 14, 92 },
+                                  { 2, 82 },   { 36, 78 },  { 52, 66 },
+                                  { 57, 46 },  { 27, 27 } };
+            addOffset({ 100, 100 }, vertices);
+            ctx->addPolygon(vertices, {},
+                            { .isYMonotone = true,
+                              .orientation = Orientation::Clockwise });
+            ctx->addLine(vertices, { .color = Color::Orange() },
+                         { .closed = true, .width = 5 });
+            float2 centerOfMass = float2{ 50, 50 } + float2{ 100, 200 };
+            addOffset(-centerOfMass, vertices);
+            std::ranges::for_each(vertices, [](float2& v) { v.x *= -1; });
+            addOffset(centerOfMass + float2{ 100, 0 }, vertices);
+            ctx->addPolygon(vertices, {},
+                            { .isYMonotone = true,
+                              .orientation = Orientation::Counterclockwise });
+            ctx->addLine(vertices, { .color = Color::Orange() },
+                         { .closed = true, .width = 5 });
         }
         ctx->draw();
     }

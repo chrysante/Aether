@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <alloca.h>
+#include <cassert>
 #include <concepts>
 #include <iostream>
 #include <ranges>
 #include <type_traits>
 #include <vector>
+
+#include <utl/stack.hpp>
 
 using namespace xui;
 
@@ -46,7 +49,8 @@ static void pathCircleSegmentImpl(vml::vector2<FloatType> begin,
                                   VertexEmitter vertexEmitter,
                                   CircleSegmentOptions options = {}) {
     int end = options.numSegments - (options.emitLast ? 0 : 1);
-    int orientation = options.orientation == CircleSegmentOptions::CCW ? 1 : -1;
+    int orientation = options.orientation == Orientation::Counterclockwise ? 1 :
+                                                                             -1;
     auto v = begin - origin;
     for (int i = options.emitFirst ? 0 : 1; i <= end; ++i) {
         FloatType angle =
@@ -212,17 +216,25 @@ static bool isEar(auto begin, auto end, size_t prev, size_t curr, size_t next) {
     return true;
 }
 
+template <typename IndexType>
+static std::vector<IndexType> makeIndexVector(size_t vertexCount) {
+    std::vector<IndexType> indices;
+    indices.reserve(vertexCount);
+    for (IndexType i = 0; i < vertexCount; ++i) {
+        indices.push_back(i);
+    }
+    return indices;
+}
+
 template <std::unsigned_integral IndexType = uint32_t, std::input_iterator Itr,
           std::sentinel_for<Itr> S,
           std::invocable<IndexType, IndexType, IndexType> TriangleEmitter>
 void static triangulatePolyEarClipping(Itr begin, S end,
                                        TriangleEmitter triangleEmitter) {
     size_t vertexCount = std::ranges::distance(begin, end);
-    std::vector<IndexType> vertexIndices;
-    vertexIndices.reserve(vertexCount);
-    for (IndexType i = 0; i < vertexCount; ++i) {
-        vertexIndices.push_back(i);
-    }
+    std::vector<IndexType> vertexIndices =
+        makeIndexVector<IndexType>(vertexCount);
+loopBegin:
     while (vertexIndices.size() > 3) {
         size_t n = vertexIndices.size();
         for (size_t i = 0; i < n; ++i) {
@@ -232,20 +244,90 @@ void static triangulatePolyEarClipping(Itr begin, S end,
             if (isEar(begin, end, prev, curr, next)) {
                 std::invoke(triangleEmitter, prev, curr, next);
                 vertexIndices.erase(vertexIndices.begin() + i);
-                goto end;
+                goto loopBegin;
             }
         }
         std::cerr << "No ear found, possibly degenerate polygon\n";
         return;
-end:
-        (void)0;
     }
-    std::invoke(triangleEmitter, 0, 1, 2);
+    std::invoke(triangleEmitter, vertexIndices[0], vertexIndices[1],
+                vertexIndices[2]);
+}
+
+template <std::unsigned_integral IndexType>
+bool is_distance_one_mod_n(IndexType a, IndexType b, size_t n) {
+    IndexType diff = a > b ? a - b : b - a;
+    return diff == 1 || diff == n - 1;
+}
+
+template <std::unsigned_integral IndexType = uint32_t, std::input_iterator Itr,
+          std::sentinel_for<Itr> S,
+          std::invocable<IndexType, IndexType, IndexType> TriangleEmitter>
+void static triangulatePolyYMonotone(Itr begin, S end,
+                                     TriangleEmitter triangleEmitter,
+                                     Orientation orientation) {
+    size_t vertexCount = std::ranges::distance(begin, end);
+    assert(vertexCount >= 3);
+    std::vector<IndexType> vertexIndices =
+        makeIndexVector<IndexType>(vertexCount);
+    auto vertexAt = [begin](IndexType index) -> auto& {
+        return *(begin + index);
+    };
+    auto isConvex = [&](IndexType a, IndexType b, IndexType c) -> bool {
+        auto p1 = vertexAt(a);
+        auto p2 = vertexAt(b);
+        auto p3 = vertexAt(c);
+        return (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x) >
+               0;
+    };
+    auto compare = [&](IndexType i, IndexType j) {
+        auto a = vertexAt(i);
+        auto b = vertexAt(j);
+        return a.y == b.y ? a.x < b.x : a.y < b.y;
+    };
+    std::ranges::sort(vertexIndices, compare);
+    utl::stack<IndexType> stack = { vertexIndices[0], vertexIndices[1] };
+    size_t indexIndex = 2;
+    bool isLeft = (vertexIndices[1] == (vertexIndices[0] + 1) % vertexCount) ==
+                  (orientation == Orientation::Counterclockwise);
+    for (IndexType index: vertexIndices | std::views::drop(2)) {
+        IndexType prev = stack.pop();
+        bool sameChain = is_distance_one_mod_n(index, prev, vertexCount);
+        if (sameChain) {
+            while (!stack.empty() &&
+                   (index == vertexIndices.back() ||
+                    isLeft != isConvex(stack.top(), prev, index)))
+            {
+                IndexType top = stack.pop();
+                std::invoke(triangleEmitter, index, top, prev);
+                prev = top;
+            }
+            stack.push(prev);
+            stack.push(index);
+        }
+        else {
+            isLeft = !isLeft;
+            while (!stack.empty()) {
+                IndexType top = stack.pop();
+                std::invoke(triangleEmitter, index, top, prev);
+                prev = top;
+            }
+            stack.push(vertexIndices[indexIndex - 1]);
+            stack.push(index);
+        }
+        ++indexIndex;
+    }
 }
 
 void xui::triangulatePolygon(
     std::span<vml::float2 const> vertices,
-    utl::function_view<void(uint32_t, uint32_t, uint32_t)> triangleEmitter) {
+    utl::function_view<void(uint32_t, uint32_t, uint32_t)> triangleEmitter,
+    TriangulationOptions options) {
+    if (options.isYMonotone) {
+        triangulatePolyYMonotone(vertices.begin(), vertices.end(),
+                                 triangleEmitter, options.orientation);
+        return;
+    }
     triangulatePolyEarClipping(vertices.begin(), vertices.end(),
                                triangleEmitter);
 }
