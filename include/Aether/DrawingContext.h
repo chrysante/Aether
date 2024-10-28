@@ -2,6 +2,7 @@
 #define AETHER_DRAWINGCONTEXT_H
 
 #include <span>
+#include <variant>
 #include <vector>
 
 #include <vml/vml.hpp>
@@ -13,8 +14,23 @@ namespace xui {
 
 class View;
 
-struct DrawCallOptions {
+struct FlatColor {
+    FlatColor(Color color = {}): color(color) {}
+
     Color color = Color::Red();
+};
+
+struct Gradient {
+    struct {
+        vml::float2 coord;
+        Color color;
+    } begin, end;
+};
+
+using FillMode = std::variant<FlatColor, Gradient>;
+
+struct DrawCallOptions {
+    FillMode fill = {};
     bool wireframe = false;
 };
 

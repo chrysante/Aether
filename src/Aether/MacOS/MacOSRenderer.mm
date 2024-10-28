@@ -63,8 +63,12 @@ MacOSRenderer::MacOSRenderer(View* view):
 
 namespace {
 
-struct Uniforms {
-    vml::float4 color;
+enum class FillModeType { FlatColor, Gradient };
+
+struct UniformData {
+    FillModeType fillMode;
+    vml::float4 color, alternateColor;
+    vml::float2 beginCoord, endCoord;
 };
 
 } // namespace
@@ -74,19 +78,33 @@ constexpr auto ShaderSource = R"(
 
 using namespace metal;
 
-struct Uniforms {
-    float4 color;
+enum FillMode { FlatColor, Gradient };
+
+struct UniformData {
+    FillMode fillMode;
+    float4 color, alternateColor;
+    float2 beginCoord, endCoord;
 };
 
 vertex float4 vertex_main(float2 device const* vertices [[buffer(0)]],
                           float4x4 device const& transform [[buffer(1)]],
-                          Uniforms device const& uniforms [[buffer(2)]],
+                          UniformData device const& uniforms [[buffer(2)]],
                           uint vertexID [[vertex_id]]) {
     return transform * float4(vertices[vertexID], 0, 1);
 }
 
-fragment float4 fragment_main(Uniforms device const& uniforms [[buffer(0)]]) {
-    return uniforms.color;
+fragment float4 fragment_main(float4 position [[position]], UniformData device const& uniforms [[buffer(0)]]) {
+    switch (uniforms.fillMode) {
+    case FlatColor:
+        return uniforms.color;
+    case Gradient: {
+        float2 d = uniforms.endCoord - uniforms.beginCoord;
+        float2 p = position.xy - uniforms.beginCoord;
+        float t = dot(p, d) / dot(d, d);
+        return mix(uniforms.color, uniforms.alternateColor, clamp(t, 0.0f, 1.0f));
+    }
+    }
+    return {};
 }
 )";
 
@@ -143,6 +161,27 @@ static void uploadData(id<MTLDevice> device, id<MTLBuffer> __strong* buffer,
     std::memcpy([*buffer contents], data, size);
 }
 
+static UniformData makeUniformData(DrawCallOptions const& opt) {
+    // clang-format off
+    return std::visit(csp::overload{
+        [](FlatColor const& c) -> UniformData {
+            return {
+                .fillMode = FillModeType::FlatColor,
+                .color = c.color
+            };
+        },
+        [](Gradient const& g) -> UniformData {
+            return {
+                .fillMode = FillModeType::Gradient,
+                .color = g.begin.color,
+                .alternateColor = g.end.color,
+                .beginCoord = g.begin.coord,
+                .endCoord = g.end.coord
+            };
+        },
+    }, opt.fill); // clang-format on
+}
+
 void MacOSRenderer::render(std::span<float2 const> vertices,
                            std::span<uint32_t const> indices,
                            std::span<DrawCall const> drawCalls) {
@@ -173,7 +212,7 @@ void MacOSRenderer::render(std::span<float2 const> vertices,
     [encoder setVertexBuffer:transformMatrixBuffer offset:0 atIndex:1];
     for (size_t DCIndex = 0; auto& drawCall: drawCalls) {
         auto* uniformBuffer = getUniformBuffer(DCIndex);
-        Uniforms uniformData = { .color = drawCall.options.color };
+        UniformData uniformData = makeUniformData(drawCall.options);
         uploadData(device, uniformBuffer, &uniformData, sizeof uniformData);
         [encoder setFragmentBuffer:*uniformBuffer offset:0 atIndex:0];
         [encoder setTriangleFillMode:drawCall.options.wireframe ?

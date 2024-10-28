@@ -289,6 +289,18 @@ struct Rect: Point, Size {
     Size const& size() const { return *this; };
 };
 
+inline Rect normalize(Rect rect) {
+    if (rect.width() < 0) {
+        rect.width() = -rect.width();
+        rect.origin().x -= rect.width();
+    }
+    if (rect.height() < 0) {
+        rect.height() = -rect.height();
+        rect.origin().y -= rect.height();
+    }
+    return rect;
+}
+
 constexpr Rect merge(Rect const& A, Rect const& B) {
     auto AMax = A.origin() + A.size();
     auto BMax = B.origin() + B.size();
