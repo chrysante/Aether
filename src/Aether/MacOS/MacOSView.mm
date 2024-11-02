@@ -121,10 +121,14 @@ struct View::EventImpl {
         auto itr = view._eventHandlers.find(type);
         return itr != view._eventHandlers.end() ? &itr->second : nullptr;
     }
-    static bool handleEvent(EventType type, View& view, NSEvent __weak* event) {
+    static bool handleEvent(EventType type, View& view,
+                            NSEvent __weak* nativeEvent) {
+        auto event = EventTranslator{ view, nativeEvent }.to(type);
+        if (event.visit([&](auto& event) { return view.onEvent(event); })) {
+            return true;
+        }
         auto* handler = getHandler(view, type);
-        if (!handler) return false;
-        return (*handler)(EventTranslator{ view, event }.to(type));
+        return handler && (*handler)(event);
     }
     static bool ignoreMouseEvents(View const& view) {
         return view._ignoreMouseEvents;

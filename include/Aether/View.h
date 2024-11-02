@@ -249,6 +249,16 @@ private:
 
     virtual bool clipsToBounds() const { return true; }
 
+    /// Event handler functions @{
+    virtual bool onEvent(MouseDownEvent const&) { return false; }
+    virtual bool onEvent(MouseUpEvent const&) { return false; }
+    virtual bool onEvent(MouseMoveEvent const&) { return false; }
+    virtual bool onEvent(MouseDragEvent const&) { return false; }
+    virtual bool onEvent(MouseEnterEvent const&) { return false; }
+    virtual bool onEvent(MouseExitEvent const&) { return false; }
+    virtual bool onEvent(ScrollEvent const&) { return false; }
+    /// @}
+
     View* _parent = nullptr;
     void* _nativeHandle = nullptr;
     Vec2<LayoutMode> _layoutMode;

@@ -81,24 +81,26 @@ public:
         stack = addSubview(VStack({}));
         setPreferredSize({ 300, 100 });
         setShadow();
-        addEventHandler([this](MouseDownEvent const& e) {
-            if (e.mouseButton() == MouseButton::Left) {
-                orderFront();
-                return true;
-            }
-            return false;
-        });
-        addEventHandler([this](MouseDragEvent const& e) {
-            if (e.mouseButton() != MouseButton::Left) return false;
-            this->pos += e.delta();
-            parent()->layout(parent()->frame());
-            return true;
-        });
     }
 
     Vec2<double> position() const { return pos; }
 
 private:
+    bool onEvent(MouseDownEvent const& e) override {
+        if (e.mouseButton() == MouseButton::Left) {
+            orderFront();
+            return true;
+        }
+        return false;
+    }
+
+    bool onEvent(MouseDragEvent const& e) override {
+        if (e.mouseButton() != MouseButton::Left) return false;
+        this->pos += e.delta();
+        parent()->layout(parent()->frame());
+        return true;
+    }
+
     void doLayout(xui::Rect frame) override {
         setFrame(frame);
         stack->layout({ {}, frame.size() });
@@ -180,40 +182,43 @@ public:
         View({ .layoutModeX = LayoutMode::Flex,
                .layoutModeY = LayoutMode::Flex }),
         nodeLayer(addSubview(std::make_unique<NodeLayer>())),
-        selectionLayer(addSubview(std::make_unique<SelectionLayer>())) {
-        addEventHandler([this](ScrollEvent const& e) {
-            nodeLayer->updatePosition(e.delta());
-            return true;
-        });
-        addEventHandler([this](MouseDownEvent const& e) {
-            if (e.mouseButton() != MouseButton::Left) return false;
-            selectionRect = Rect{ e.locationInWindow() - origin(), {} };
-            selectionLayer->update(selectionRect);
-            return true;
-        });
-        addEventHandler([this](MouseUpEvent const& e) {
-            if (e.mouseButton() != MouseButton::Left) return false;
-            selectionRect = std::nullopt;
-            selectionLayer->update(selectionRect);
-            return true;
-        });
-        addEventHandler([this](MouseDragEvent const& e) {
-            switch (e.mouseButton()) {
-            case MouseButton::Left:
-                if (!selectionRect) return false;
-                selectionRect->size() += e.delta();
-                selectionLayer->update(selectionRect);
-                return true;
-            case MouseButton::Right:
-                nodeLayer->updatePosition(e.delta());
-                return true;
-            default:
-                return false;
-            }
-        });
-    }
+        selectionLayer(addSubview(std::make_unique<SelectionLayer>())) {}
 
 private:
+    bool onEvent(ScrollEvent const& e) override {
+        nodeLayer->updatePosition(e.delta());
+        return true;
+    }
+
+    bool onEvent(MouseDownEvent const& e) override {
+        if (e.mouseButton() != MouseButton::Left) return false;
+        selectionRect = Rect{ e.locationInWindow() - origin(), {} };
+        selectionLayer->update(selectionRect);
+        return true;
+    }
+
+    bool onEvent(MouseUpEvent const& e) override {
+        if (e.mouseButton() != MouseButton::Left) return false;
+        selectionRect = std::nullopt;
+        selectionLayer->update(selectionRect);
+        return true;
+    }
+
+    bool onEvent(MouseDragEvent const& e) override {
+        switch (e.mouseButton()) {
+        case MouseButton::Left:
+            if (!selectionRect) return false;
+            selectionRect->size() += e.delta();
+            selectionLayer->update(selectionRect);
+            return true;
+        case MouseButton::Right:
+            nodeLayer->updatePosition(e.delta());
+            return true;
+        default:
+            return false;
+        }
+    }
+
     void doLayout(Rect frame) override {
         setFrame(frame);
         xui::Rect bounds = { {}, frame.size() };
