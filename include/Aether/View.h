@@ -183,6 +183,9 @@ public:
         return _subviews[index].get();
     }
 
+    /// Instructs this view to ignore (or receive) mouse events
+    void ignoreMouseEvents(bool value = true) { _ignoreMouseEvents = value; }
+
     /// Orders this view to the front in its parent view
     void orderFront();
 
@@ -233,6 +236,7 @@ private:
     void* _nativeHandle = nullptr;
     Vec2<LayoutMode> _layoutMode;
     Size _minSize, _maxSize, _prefSize;
+    bool _ignoreMouseEvents = false;
     std::vector<std::unique_ptr<View>> _subviews;
     std::unordered_map<ViewAttributeKey, std::any> _attribMap;
     std::unordered_map<EventType, std::function<bool(EventUnion const&)>>

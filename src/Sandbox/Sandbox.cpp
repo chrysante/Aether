@@ -108,7 +108,10 @@ private:
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
         auto shape = nodeShape(node, preferredSize());
-        ctx->addPolygon(shape, { .color = { .9, .3, .1, 1 } },
+        ctx->addPolygon(shape,
+                        { .fill = Gradient{ .begin{ { 0, 0 }, Color::Orange() },
+                                            .end{ { 0, 2 * size().height() },
+                                                  Color::Red() } } },
                         { .isYMonotone = true,
                           .orientation = Orientation::Counterclockwise });
         ctx->draw();
@@ -121,30 +124,21 @@ private:
     Node node;
 };
 
-class NodeEditorView: public View {
+class NodeLayer: public View {
 public:
-    NodeEditorView():
+    NodeLayer():
         View({ .layoutModeX = LayoutMode::Flex,
                .layoutModeY = LayoutMode::Flex }) {
         addSubview(std::make_unique<NodeView>(Vec2<double>{ 0, 0 }));
         addSubview(std::make_unique<NodeView>(Vec2<double>{ 100, 300 }));
-        onEvent([this](ScrollEvent const& e) {
-            updatePosition(e.delta());
-            return true;
-        });
-        onEvent([this](MouseDragEvent const& e) {
-            if (e.mouseButton() != MouseButton::Right) return false;
-            updatePosition(e.delta());
-            return true;
-        });
     }
 
-private:
     void updatePosition(Vec2<double> delta) {
         position += delta;
         doLayout(frame());
     }
 
+private:
     void doLayout(Rect frame) override {
         setFrame(frame);
         for (auto* view: subviews()) {
@@ -156,6 +150,80 @@ private:
     }
 
     Vec2<double> position = {};
+};
+
+class SelectionLayer: public View {
+public:
+    SelectionLayer() { ignoreMouseEvents(); }
+
+    void update(std::optional<xui::Rect> optRect) {
+        auto* ctx = getDrawingContext();
+        if (optRect) {
+            auto r = normalize(*optRect);
+            float2 min = (Vec2<double>)r.origin();
+            float2 max = min + (float2)(Vec2<double>)r.size();
+            float2 points[] = { min, { max.x, min.y }, max, { min.x, max.y } };
+            ctx->addPolygon(points, { .fill = Color::Green() },
+                            { .isYMonotone = true,
+                              .orientation = Orientation::Counterclockwise });
+        }
+        ctx->draw();
+    }
+
+private:
+    void doLayout(xui::Rect frame) override { setFrame(frame); }
+};
+
+class NodeEditorView: public View {
+public:
+    NodeEditorView():
+        View({ .layoutModeX = LayoutMode::Flex,
+               .layoutModeY = LayoutMode::Flex }),
+        nodeLayer(addSubview(std::make_unique<NodeLayer>())),
+        selectionLayer(addSubview(std::make_unique<SelectionLayer>())) {
+        onEvent([this](ScrollEvent const& e) {
+            nodeLayer->updatePosition(e.delta());
+            return true;
+        });
+        onEvent([this](MouseDownEvent const& e) {
+            if (e.mouseButton() != MouseButton::Left) return false;
+            selectionRect = Rect{ e.locationInWindow() - position(), {} };
+            selectionLayer->update(selectionRect);
+            return true;
+        });
+        onEvent([this](MouseUpEvent const& e) {
+            if (e.mouseButton() != MouseButton::Left) return false;
+            selectionRect = std::nullopt;
+            selectionLayer->update(selectionRect);
+            return true;
+        });
+        onEvent([this](MouseDragEvent const& e) {
+            switch (e.mouseButton()) {
+            case MouseButton::Left:
+                if (!selectionRect) return false;
+                selectionRect->size() += e.delta();
+                selectionLayer->update(selectionRect);
+                return true;
+            case MouseButton::Right:
+                nodeLayer->updatePosition(e.delta());
+                return true;
+            default:
+                return false;
+            }
+        });
+    }
+
+private:
+    void doLayout(Rect frame) override {
+        setFrame(frame);
+        xui::Rect bounds = { {}, frame.size() };
+        nodeLayer->layout(bounds);
+        selectionLayer->layout(bounds);
+    }
+
+    NodeLayer* nodeLayer;
+    SelectionLayer* selectionLayer;
+    std::optional<xui::Rect> selectionRect;
 };
 
 struct Sandbox: Application {

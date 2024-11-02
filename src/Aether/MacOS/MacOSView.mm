@@ -126,6 +126,9 @@ struct View::EventImpl {
         if (!handler) return false;
         return (*handler)(EventTranslator{ view, event }.to(type));
     }
+    static bool ignoreMouseEvents(View const& view) {
+        return view._ignoreMouseEvents;
+    }
 };
 
 static NSTrackingArea* makeTrackingArea(auto* __unsafe_unretained Self) {
@@ -239,6 +242,10 @@ static void setHasTrackingArea(auto* __unsafe_unretained Self, bool value) {
     }                                                                          \
     -(BOOL)acceptsFirstMouse: (NSEvent*)event {                                \
         return YES;                                                            \
+    }                                                                          \
+    -(nullable NSView*)hitTest: (NSPoint)point {                               \
+        if (View::EventImpl::ignoreMouseEvents(*getView(self))) return nil;    \
+        return [super hitTest:point];                                          \
     }                                                                          \
     @end
 
