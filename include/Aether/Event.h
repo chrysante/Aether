@@ -52,15 +52,14 @@ private:
 /// Base class of all mouse events
 class MouseEvent: public Event {
 public:
-    Vec2<double> locationInWindow() const { return _locationInWindow; }
+    Point locationInWindow() const { return _locationInWindow; }
 
 protected:
-    explicit MouseEvent(EventType type, Window* window,
-                        Vec2<double> locationInWindow):
+    explicit MouseEvent(EventType type, Window* window, Point locationInWindow):
         Event(type, window), _locationInWindow(locationInWindow) {}
 
 private:
-    Vec2<double> _locationInWindow;
+    Point _locationInWindow;
 };
 
 /// Base class of `MouseDownEvent` and `MouseUpEvent`

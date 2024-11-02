@@ -125,12 +125,19 @@ public:
     void setLayoutModeX(LayoutMode mode) { _layoutMode.x = mode; }
     void setLayoutModeY(LayoutMode mode) { _layoutMode.y = mode; }
 
-    Rect frame() const { return { position(), size() }; }
-    Point position() const;
+    /// \Returns the frame of this view
+    Rect frame() const { return { origin(), size() }; }
+
+    /// \Returns the origin of this view
+    Point origin() const;
+
+    /// \Return the size of this view
     Size size() const;
 
     /// \Returns the parent view if this view is attached to another view
     View* parent() { return _parent; }
+
+    /// \overload
     View const* parent() const { return _parent; }
 
     /// \Returns the value of the attribute \p key if present, otherwise
@@ -156,8 +163,9 @@ public:
         }
     }
 
+    /// Installs the event handler functions \p f... onto this view
     template <EventHandlerType... F>
-    auto onEvent(F&&... f) {
+    auto addEventHandler(F&&... f) {
         ([&] {
             using E = EventHandlerEventType<F>;
             installEventHandler(EventTypeToID<E>, [=](EventUnion const& e) {
@@ -166,18 +174,27 @@ public:
         }(), ...);
     }
 
+    ///
     void trackMouseMovement(MouseTrackingKind kind,
                             MouseTrackingActivity activity);
 
+    /// \Returns a range-view over the subviews of this view
     auto subviews() { return _subviews | std::views::transform(detail::Get); }
+
+    /// \overload
     auto subviews() const {
         return _subviews | std::views::transform(detail::Get);
     }
 
+    /// \Returns the number of subviews of this view
     size_t numSubviews() const { return _subviews.size(); }
+
+    /// \Returns the subview at \p index
     View* subviewAt(size_t index) {
         return const_cast<View*>(std::as_const(*this).subviewAt(index));
     }
+
+    /// \overload
     View const* subviewAt(size_t index) const {
         assert(index < numSubviews());
         return _subviews[index].get();

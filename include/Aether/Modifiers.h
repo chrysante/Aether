@@ -183,7 +183,7 @@ constexpr auto AssignTo(WeakRef<V>& ref) {
 /// Installs event handlers to a view
 template <EventHandlerType... F>
 auto OnEvent(F&&... f) {
-    return [=](View& view) { view.onEvent(f...); };
+    return [=](View& view) { view.addEventHandler(f...); };
 }
 
 /// Enables mouse tracking of a view

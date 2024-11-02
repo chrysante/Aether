@@ -287,7 +287,7 @@ void* detail::defaultNativeConstructor(ViewOptions const&) {
 
 View::~View() { release(nativeHandle()); }
 
-xui::Point View::position() const {
+xui::Point View::origin() const {
     NSView* view = transfer(nativeHandle());
     auto pos =
         fromAppkitCoords(view.frame.origin, view.superview.frame.size.height);
@@ -644,7 +644,7 @@ double SplitView::constrainSplitPosition(double proposedPosition,
     auto* right = subviewAt(index + 1);
     // Must transform the position again because of the flipped coordinate
     // system
-    Point leftPosition = left->position();
+    Point leftPosition = left->origin();
     leftPosition.y += left->size().height();
     leftPosition.y = size().height() - leftPosition.y;
     double currentPosition = leftPosition[axis] + left->size()[axis];

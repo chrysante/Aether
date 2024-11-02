@@ -81,14 +81,14 @@ public:
         stack = addSubview(VStack({}));
         setPreferredSize({ 300, 100 });
         setShadow();
-        onEvent([this](MouseDownEvent const& e) {
+        addEventHandler([this](MouseDownEvent const& e) {
             if (e.mouseButton() == MouseButton::Left) {
                 orderFront();
                 return true;
             }
             return false;
         });
-        onEvent([this](MouseDragEvent const& e) {
+        addEventHandler([this](MouseDragEvent const& e) {
             if (e.mouseButton() != MouseButton::Left) return false;
             this->pos += e.delta();
             parent()->layout(parent()->frame());
@@ -181,23 +181,23 @@ public:
                .layoutModeY = LayoutMode::Flex }),
         nodeLayer(addSubview(std::make_unique<NodeLayer>())),
         selectionLayer(addSubview(std::make_unique<SelectionLayer>())) {
-        onEvent([this](ScrollEvent const& e) {
+        addEventHandler([this](ScrollEvent const& e) {
             nodeLayer->updatePosition(e.delta());
             return true;
         });
-        onEvent([this](MouseDownEvent const& e) {
+        addEventHandler([this](MouseDownEvent const& e) {
             if (e.mouseButton() != MouseButton::Left) return false;
-            selectionRect = Rect{ e.locationInWindow() - position(), {} };
+            selectionRect = Rect{ e.locationInWindow() - origin(), {} };
             selectionLayer->update(selectionRect);
             return true;
         });
-        onEvent([this](MouseUpEvent const& e) {
+        addEventHandler([this](MouseUpEvent const& e) {
             if (e.mouseButton() != MouseButton::Left) return false;
             selectionRect = std::nullopt;
             selectionLayer->update(selectionRect);
             return true;
         });
-        onEvent([this](MouseDragEvent const& e) {
+        addEventHandler([this](MouseDragEvent const& e) {
             switch (e.mouseButton()) {
             case MouseButton::Left:
                 if (!selectionRect) return false;
