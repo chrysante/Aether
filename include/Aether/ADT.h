@@ -170,12 +170,44 @@ MoveOnlyVector<T> toMoveOnlyVector(T (&&elems)[N]) {
 
 namespace detail {
 
+struct DeduceType;
+
 /// Function object that calls `.get()` on its argument and returns the result
-struct GetT {
-    constexpr decltype(auto) operator()(auto&& p) const {
+template <typename T>
+struct GetFn {
+    constexpr decltype(auto) operator()(auto&& p) const
+        requires std::same_as<T, DeduceType>
+    {
         return std::forward<decltype(p)>(p).get();
     }
-} inline constexpr Get{};
+
+    constexpr T operator()(auto&& p) const {
+        return std::forward<decltype(p)>(p).get();
+    }
+};
+
+template <typename T = DeduceType>
+inline constexpr GetFn<T> GetT{};
+
+inline constexpr GetFn<DeduceType> Get{};
+
+template <typename T>
+struct AddressOfFn {
+    constexpr decltype(auto) operator()(auto&& p) const
+        requires std::same_as<T, DeduceType>
+    {
+        return std::addressof(std::forward<decltype(p)>(p));
+    }
+
+    constexpr T operator()(auto&& p) const {
+        return std::addressof(std::forward<decltype(p)>(p));
+    }
+};
+
+template <typename T = DeduceType>
+inline constexpr AddressOfFn<T> AddressOfT{};
+
+inline constexpr AddressOfFn<DeduceType> AddressOf{};
 
 } // namespace detail
 

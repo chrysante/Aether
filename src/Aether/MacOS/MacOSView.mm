@@ -313,15 +313,21 @@ void View::setNativeHandle(void* handle) {
 }
 
 void View::setSubviews(std::vector<std::unique_ptr<View>> views) {
+    removeAllSubviews();
+    NSView* native = transfer(nativeHandle());
+    setSubviewsWeak(PrivateViewKey, std::move(views));
+    for (auto* child: subviews()) {
+        [native addSubview:transfer(child->nativeHandle())];
+    }
+}
+
+void View::removeAllSubviews() {
     NSView* native = transfer(nativeHandle());
     NSArray* nativeSubviews = [native subviews];
     for (NSView* subview in nativeSubviews) {
         [subview removeFromSuperview];
     }
-    setSubviewsWeak(PrivateViewKey, std::move(views));
-    for (auto* child: subviews()) {
-        [native addSubview:transfer(child->nativeHandle())];
-    }
+    _subviews.clear();
 }
 
 void View::orderFront() {

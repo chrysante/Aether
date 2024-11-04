@@ -5,7 +5,7 @@ PRIVATE
     src/Sandbox/Sandbox.cpp
 )
 target_link_libraries(Sandbox
-    PRIVATE Aether
+    PRIVATE Aether Flow
     PRIVATE WarningFlags Sanitizers
 )
 

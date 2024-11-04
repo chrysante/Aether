@@ -230,6 +230,8 @@ protected:
     void setSubviewsWeak(detail::PrivateViewKeyT,
                          std::vector<std::unique_ptr<View>> views);
 
+    void removeAllSubviews();
+
     DrawingContext* getDrawingContext();
 
     void setShadow(ShadowConfig config = {});
