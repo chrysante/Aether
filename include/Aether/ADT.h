@@ -8,6 +8,7 @@
 #include <iosfwd>
 #include <memory>
 #include <span>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -130,6 +131,40 @@ WeakRef(T) -> WeakRef<T>;
 
 template <typename T>
 WeakRef(std::unique_ptr<T>) -> WeakRef<T>;
+
+/// # ValueProxy
+
+template <typename T>
+class ValueProxy {
+    struct RefTag {};
+
+public:
+    template <typename... Args>
+        requires std::constructible_from<T, Args&&...>
+    ValueProxy(Args&&... args):
+        _value(std::in_place_type<T>, std::forward<Args>(args)...) {}
+
+    template <typename... Args>
+        requires std::constructible_from<T, Args&&...>
+    static ValueProxy Owning(Args&&... args) {
+        return ValueProxy(std::forward<Args>(args)...);
+    }
+
+    static ValueProxy Reference(T const& ref) {
+        return ValueProxy(RefTag{}, &ref);
+    }
+
+    T const& get() const {
+        return _value.index() == 0 ? std::get<0>(_value) : *std::get<1>(_value);
+    }
+
+private:
+    explicit ValueProxy(RefTag, T const* ptr): _value(ptr) {}
+
+    std::variant<T, T const*> _value;
+};
+
+using StringProxy = ValueProxy<std::string>;
 
 /// # MoveOnlyVector
 
