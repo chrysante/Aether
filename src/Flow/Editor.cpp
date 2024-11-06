@@ -12,42 +12,44 @@ using namespace flow;
 using namespace xui;
 using namespace vml::short_types;
 
+float const CornerRadius = 10;
+float const PinSize = 15;
+float const PinRadius = 5;
+
 static xui::Size computeNodeSize(Node const&) { return { 200, 100 }; }
 
 static std::vector<float2> nodeShape(Node const& node, Size size) {
     std::vector<float2> result;
-    float const cornerRadius = 20;
-    float const pinSize = 30;
-    float const pinRadius = 10;
+
     auto vertexEmitter = [&](float2 v) { result.push_back(v); };
     static constexpr float pi = vml::constants<float>::pi;
-    pathCircleSegment({ 0, cornerRadius }, { cornerRadius, cornerRadius },
+    pathCircleSegment({ 0, CornerRadius }, { CornerRadius, CornerRadius },
                       pi / 2, vertexEmitter,
                       { .orientation = Orientation::Clockwise });
-    pathCircleSegment({ size.width() - cornerRadius, 0 },
-                      { size.width() - cornerRadius, cornerRadius }, pi / 2,
+    pathCircleSegment({ size.width() - CornerRadius, 0 },
+                      { size.width() - CornerRadius, CornerRadius }, pi / 2,
                       vertexEmitter, { .orientation = Orientation::Clockwise });
-    double cursor = cornerRadius;
+    double cursor = CornerRadius;
     for ([[maybe_unused]] auto* pin: node.outputs()) {
-        pathCircleSegment({ size.width(), cursor + pinSize / 2 - pinRadius },
-                          { size.width(), cursor + pinSize / 2 }, pi,
+        pathCircleSegment({ size.width(), cursor + PinSize / 2 - PinRadius },
+                          { size.width(), cursor + PinSize / 2 }, pi,
                           vertexEmitter);
-        cursor += pinSize;
+        cursor += PinSize;
     }
-    pathCircleSegment(float2{ size.width(), size.height() - cornerRadius },
+    pathCircleSegment(float2{ size.width(), size.height() - CornerRadius },
                       float2(size.width(), size.height()) -
-                          float2(cornerRadius),
+                          float2(CornerRadius),
                       pi / 2, vertexEmitter,
                       { .orientation = Orientation::Clockwise });
-    vertexEmitter({ size.width() - cornerRadius, size.height() });
-    pathCircleSegment({ cornerRadius, size.height() },
-                      { cornerRadius, size.height() - cornerRadius }, pi / 2,
+    vertexEmitter({ size.width() - CornerRadius, size.height() });
+    pathCircleSegment({ CornerRadius, size.height() },
+                      { CornerRadius, size.height() - CornerRadius }, pi / 2,
                       vertexEmitter, { .orientation = Orientation::Clockwise });
-    cursor = cornerRadius + pinSize * node.inputs().size();
+    cursor = CornerRadius + PinSize * node.inputs().size();
     for ([[maybe_unused]] auto* pin: node.inputs()) {
-        pathCircleSegment({ 0, cursor - pinSize / 2 + pinRadius },
-                          { 0, cursor - pinSize / 2 }, pi, vertexEmitter);
-        cursor -= pinSize;
+        pathCircleSegment({ 0, cursor - PinSize / 2 + PinRadius },
+                          { 0, cursor - PinSize / 2 }, pi, vertexEmitter);
+        cursor -= PinSize;
     }
     return result;
 }
@@ -59,6 +61,7 @@ public:
     explicit NodeView(Node& node): _node(node) {
         addSubview(VStack({})); // FIXME: Shadows don't work without this
         setShadow();
+        label = addSubview(Label(StringProxy::Reference(node.name())));
     }
 
     Node& node() const { return _node; }
@@ -90,6 +93,7 @@ private:
     bool clipsToBounds() const override { return false; }
 
     Node& _node;
+    LabelView* label = nullptr;
 };
 
 } // namespace
@@ -97,6 +101,7 @@ private:
 void NodeView::doLayout(xui::Rect frame) {
     setFrame(frame);
     draw({});
+    label->layout({ { 0, frame.size().y }, { 100, 20 } });
 }
 
 void NodeView::draw(xui::Rect) {
@@ -113,7 +118,7 @@ void NodeView::draw(xui::Rect) {
 
 class flow::NodeLayerView: public xui::View {
 public:
-    explicit NodeLayerView(EditorView* editor): editor(editor) {}
+    explicit NodeLayerView(EditorView& editor): editor(editor) {}
 
     void setGraph(Graph* g);
 
@@ -126,7 +131,13 @@ public:
 private:
     void doLayout(xui::Rect frame) override;
 
-    EditorView* editor = nullptr;
+    void draw(xui::Rect) override;
+
+    void drawLines(DrawingContext* ctx);
+
+    Point getPinLocation(Pin const& pin) const;
+
+    EditorView& editor;
     Graph* graph = nullptr;
 
     utl::hashmap<Node const*, NodeView*> viewMap;
@@ -146,10 +157,65 @@ void NodeLayerView::setGraph(Graph* g) {
 void NodeLayerView::doLayout(xui::Rect frame) {
     setFrame(frame);
     if (!graph) return;
+    draw({});
     for (auto* node: graph->nodes()) {
         auto* nodeView = getNodeView(node);
-        nodeView->layout({ origin() + nodeView->position(), nodeView->size() });
+        nodeView->layout({ editor.surfaceOrigin() + nodeView->position(),
+                           nodeView->size() });
     }
+}
+
+void NodeLayerView::draw(xui::Rect) {
+    auto* ctx = getDrawingContext();
+    if (graph) {
+        drawLines(ctx);
+    }
+    ctx->draw();
+}
+
+static void drawLine(DrawingContext* ctx, vml::float2 begin, vml::float2 end) {
+    static constexpr size_t NumSegments = 20;
+    std::array<float2, NumSegments + 1> vertices;
+    float yDiff = std::abs(begin.y - end.y);
+    float curve = 200 * 2 * std::atan(yDiff / 200) / vml::constants<float>::pi;
+    pathBezier({ { begin, begin + float2(curve, 0), end - float2(curve, 0),
+                   end } },
+               [&, i = size_t{ 0 }](float2 p) mutable { vertices[i++] = p; },
+               { .numSegments = NumSegments });
+    ctx->addLine(vertices, { .fill = FlatColor(Color::Black()) },
+                 { .width = 3,
+                   .beginCap = { LineCapOptions::Circle },
+                   .endCap = { LineCapOptions::Circle } });
+}
+
+void NodeLayerView::drawLines(DrawingContext* ctx) {
+    assert(graph);
+    for (auto* node: graph->nodes()) {
+        for (auto* input: node->inputs()) {
+            auto* source = input->source();
+            if (!source) continue;
+            float2 begin = (Vec2<double>)getPinLocation(*source);
+            float2 end = (Vec2<double>)getPinLocation(*input);
+            drawLine(ctx, begin, end);
+        }
+    }
+}
+
+Point NodeLayerView::getPinLocation(Pin const& pin) const {
+    auto* node = pin.node();
+    auto* nodeView = getNodeView(node);
+    Point nodePos = node->position() + editor.surfaceOrigin();
+    // clang-format off
+    return visit(pin, csp::overload{
+        [&](InputPin const& pin) {
+            size_t index = node->getIndex(&pin);
+            return nodePos + Vec2<double>(0, CornerRadius + PinSize * (index + 0.5));
+        },
+        [&](OutputPin const& pin) {
+            size_t index = node->getIndex(&pin);
+            return nodePos + Vec2<double>(nodeView->size().x, CornerRadius + PinSize * (index + 0.5));
+        },
+    }); // clang-format on
 }
 
 class flow::SelectionLayerView: public View {
@@ -193,7 +259,7 @@ void SelectionLayerView::draw(xui::Rect) {
 }
 
 EditorView::EditorView(Graph* graph):
-    nodeLayer(addSubview(std::make_unique<NodeLayerView>(this))),
+    nodeLayer(addSubview(std::make_unique<NodeLayerView>(*this))),
     selectionLayer(addSubview(std::make_unique<SelectionLayerView>())) {
     setGraph(graph);
 }
@@ -205,7 +271,7 @@ void EditorView::setGraph(Graph* graph) {
 
 void EditorView::doLayout(xui::Rect frame) {
     setFrame(frame);
-    nodeLayer->layout({ {}, frame.size() });
+    nodeLayer->layout(bounds());
 }
 
 bool EditorView::onEvent(ScrollEvent const& e) {
@@ -240,5 +306,5 @@ bool EditorView::onEvent(MouseDragEvent const& e) {
 
 void EditorView::addOriginDelta(Vec2<double> delta) {
     _origin += delta;
-    doLayout(frame());
+    layout(frame());
 }

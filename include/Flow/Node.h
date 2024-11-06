@@ -1,19 +1,32 @@
-#ifndef Node_h
-#define Node_h
+#ifndef FLOW_NODE_H
+#define FLOW_NODE_H
 
 #include <memory>
 #include <ranges>
 #include <span>
 
 #include <Aether/ADT.h>
+#include <Aether/Vec.h>
+#include <csp.hpp>
 #include <utl/ilist.hpp>
 #include <utl/vector.hpp>
 
 namespace flow {
 
 class Node;
+class Pin;
 class InputPin;
 class OutputPin;
+
+enum class PinType { Base, Input, Output };
+
+} // namespace flow
+
+CSP_DEFINE(flow::Pin, flow::PinType::Base, void, Abstract)
+CSP_DEFINE(flow::InputPin, flow::PinType::Input, flow::Pin, Concrete)
+CSP_DEFINE(flow::OutputPin, flow::PinType::Output, flow::Pin, Concrete)
+
+namespace flow {
 
 ///
 struct PinDesc {
@@ -22,7 +35,7 @@ struct PinDesc {
 };
 
 /// Base class of `InputPin` and `OutputPin`
-class Pin {
+class Pin: public csp::base_helper<Pin> {
 public:
     Pin(Pin const&) = delete;
     Pin& operator=(Pin const&) = delete;
@@ -36,9 +49,12 @@ public:
     /// \Returns the label
     std::string const& label() const { return _desc.label; }
 
+    /// \Returns the run time type
+    PinType type() const { return get_rtti(*this); }
+
 protected:
-    explicit Pin(Node* node, PinDesc desc):
-        _node(node), _desc(std::move(desc)) {}
+    explicit Pin(PinType type, Node* node, PinDesc desc):
+        base_helper(type), _node(node), _desc(std::move(desc)) {}
 
 private:
     Node* _node;
@@ -48,7 +64,8 @@ private:
 /// Models an input to a node
 class InputPin: public Pin {
 public:
-    explicit InputPin(Node* node, PinDesc desc): Pin(node, std::move(desc)) {}
+    explicit InputPin(Node* node, PinDesc desc):
+        Pin(PinType::Input, node, std::move(desc)) {}
 
     /// \Returns the source pin
     OutputPin* source() const { return _source; }
@@ -63,7 +80,8 @@ private:
 /// Models an output of a node
 class OutputPin: public Pin {
 public:
-    explicit OutputPin(Node* node, PinDesc desc): Pin(node, std::move(desc)) {}
+    explicit OutputPin(Node* node, PinDesc desc):
+        Pin(PinType::Output, node, std::move(desc)) {}
 
     /// \Returns a view over the users of this output, i.e., input pins of other
     /// nodes
@@ -81,6 +99,12 @@ public:
 private:
     utl::small_vector<InputPin*> _users;
 };
+
+///
+void link(OutputPin& source, InputPin& sink);
+
+/// \overload
+void link(Pin& a, Pin& b);
 
 ///
 struct NodeDesc {
@@ -129,9 +153,33 @@ public:
         return _inputs | std::views::transform(xui::detail::Get);
     }
 
+    /// \Returns the input at \p index
+    InputPin& input(size_t index) const {
+        assert(index < _inputs.size());
+        return *_inputs[index];
+    }
+
+    /// \Returns the index of \p pin
+    size_t getIndex(InputPin const* pin) {
+        auto rng = inputs();
+        return std::ranges::find(rng, pin) - rng.begin();
+    }
+
     /// \Returns a view over the output pins
     auto outputs() const {
         return _outputs | std::views::transform(xui::detail::Get);
+    }
+
+    /// \Returns the output at \p index
+    OutputPin& output(size_t index) const {
+        assert(index < _outputs.size());
+        return *_outputs[index];
+    }
+
+    /// \Returns the index of \p pin
+    size_t getIndex(OutputPin const* pin) {
+        auto rng = outputs();
+        return std::ranges::find(rng, pin) - rng.begin();
     }
 
     /// \Returns the successor nodes
@@ -157,4 +205,4 @@ private:
 
 } // namespace flow
 
-#endif /* Node_h */
+#endif // FLOW_NODE_H

@@ -18,7 +18,7 @@ source_group(TREE ${CMAKE_SOURCE_DIR} FILES ${SOURCE_FILES} ${HEADER_FILES})
 
 target_link_libraries(Flow
   PUBLIC
-    Aether
+    Aether csp
   PRIVATE
     WarningFlags Sanitizers utility
 )

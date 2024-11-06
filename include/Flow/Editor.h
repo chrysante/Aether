@@ -1,3 +1,6 @@
+#ifndef FLOW_EDITOR_H
+#define FLOW_EDITOR_H
+
 #include <Aether/View.h>
 
 namespace flow {
@@ -15,6 +18,8 @@ public:
 
     Graph* graph() const { return _graph; }
 
+    xui::Point surfaceOrigin() const { return _origin; }
+
 private:
     void doLayout(xui::Rect frame) override;
     bool onEvent(xui::ScrollEvent const&) override;
@@ -31,3 +36,5 @@ private:
 };
 
 } // namespace flow
+
+#endif // FLOW_EDITOR_H

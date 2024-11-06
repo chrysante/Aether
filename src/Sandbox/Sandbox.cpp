@@ -14,10 +14,11 @@ namespace {
 
 struct Sandbox: Application {
     Sandbox() {
-        graph.addNode(
+        auto* A = graph.addNode(
             { .name = "My Node", .inputs = { {} }, .outputs = { {} } });
-        graph.addNode(
+        auto* B = graph.addNode(
             { .name = "Other Node", .inputs = { {} }, .outputs = { {} } });
+        link(A->output(0), B->input(0));
         createWindow()->setContentView(NodeEditor());
     }
 

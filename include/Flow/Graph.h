@@ -1,5 +1,5 @@
-#ifndef Graph_h
-#define Graph_h
+#ifndef FLOW_GRAPH_H
+#define FLOW_GRAPH_H
 
 #include <memory>
 #include <ranges>
@@ -46,4 +46,4 @@ private:
 
 } // namespace flow
 
-#endif /* Graph_h */
+#endif // FLOW_GRAPH_H
