@@ -128,6 +128,9 @@ public:
     /// \Returns the frame of this view
     Rect frame() const { return { origin(), size() }; }
 
+    /// \Returns the bounds of the view, i.e., `{ { 0, 0 }, size() }`
+    Rect bounds() const { return { {}, size() }; }
+
     /// \Returns the origin of this view
     Point origin() const;
 
