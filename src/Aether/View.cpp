@@ -325,10 +325,8 @@ std::unique_ptr<TextFieldView> xui::TextField(std::string defaultText) {
     return std::make_unique<TextFieldView>(std::move(defaultText));
 }
 
-void LabelView::doLayout(Rect frame) { setFrame(frame); }
-
-std::unique_ptr<LabelView> xui::Label(std::string text) {
-    return std::make_unique<LabelView>(text);
+std::unique_ptr<LabelView> xui::Label(StringProxy text) {
+    return std::make_unique<LabelView>(std::move(text));
 }
 
 std::unique_ptr<VisualEffectView> xui::BlendInWindow(

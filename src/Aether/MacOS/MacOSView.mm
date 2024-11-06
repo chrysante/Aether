@@ -967,16 +967,24 @@ static void* labelCtor(NSString* text, ViewOptions const&) {
     return retain(view);
 }
 
-LabelView::LabelView(std::string text):
+LabelView::LabelView(StringProxy text):
     View({ .minSize = { 80, 22 },
            .layoutModeX = LayoutMode::Flex,
            .layoutModeY = LayoutMode::Static,
            .nativeConstructor =
-               std::bind_front(labelCtor, toNSString(text)) }) {}
+               std::bind_front(labelCtor, toNSString(text.get())) }),
+    _text(std::move(text)) {}
 
-void LabelView::setText(std::string text) {
+void LabelView::setText(StringProxy text) {
     NSTextField* field = transfer(nativeHandle());
-    field.stringValue = toNSString(text);
+    field.stringValue = toNSString(text.get());
+    _text = std::move(text);
+}
+
+void LabelView::doLayout(Rect frame) {
+    setFrame(frame);
+    NSTextField* field = transfer(nativeHandle());
+    field.stringValue = toNSString(_text.get());
 }
 
 // MARK: - ProgressIndicatorView
@@ -1094,6 +1102,6 @@ void* VisualEffectView::nativeConstructor(VisualEffectBlendMode blendMode,
 void VisualEffectView::doLayout(Rect frame) {
     setFrame(frame);
     for (auto* view: subviews()) {
-        view->layout({ {}, frame.size() });
+        view->layout(bounds());
     }
 }

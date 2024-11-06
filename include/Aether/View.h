@@ -599,15 +599,17 @@ std::unique_ptr<TextFieldView> TextField(std::string defaultText = {});
 ///
 class LabelView: public View {
 public:
-    explicit LabelView(std::string text);
+    explicit LabelView(StringProxy text);
 
-    void setText(std::string text);
+    void setText(StringProxy text);
 
 private:
     void doLayout(Rect frame) override;
+
+    StringProxy _text;
 };
 
-std::unique_ptr<LabelView> Label(std::string text);
+std::unique_ptr<LabelView> Label(StringProxy text);
 
 ///
 class ProgressIndicatorView: public View {
