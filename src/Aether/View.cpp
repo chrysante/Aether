@@ -55,16 +55,18 @@ void View::doLayout(Rect frame) { setFrame(frame); }
 
 void View::draw(Rect) {}
 
+void View::configureDrawingContext(RendererOptions const& options) {
+    setAttribute<ViewAttributeKey::DrawingContext>(
+        std::make_shared<DrawingContext>(this, options));
+}
+
+void View::configureDrawingContext() { configureDrawingContext({}); }
+
 DrawingContext* View::getDrawingContext() {
     auto ctx = getAttribute<ViewAttributeKey::DrawingContext>();
-    if (ctx) {
-        return ctx->get();
-    }
-    setAttribute<ViewAttributeKey::DrawingContext>(
-        std::make_shared<DrawingContext>(this));
-    auto opt = getAttribute<ViewAttributeKey::DrawingContext>();
-    assert(opt);
-    return opt->get();
+    assert(ctx && ctx->get() &&
+           "Drawing context must be created with configureDrawingContext()");
+    return ctx->get();
 }
 
 static constexpr Size SpacerMinSize = { 5, 5 };

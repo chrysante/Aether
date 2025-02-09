@@ -76,6 +76,8 @@ struct ShadowConfig {
     Color shadowColor = Color::Black();
 };
 
+struct RendererOptions;
+
 /// Base class of all views
 class View: public WeakRefCountableBase<View> {
 public:
@@ -235,6 +237,15 @@ protected:
 
     void removeAllSubviews();
 
+    /// Configures this view to be drawable
+    void configureDrawingContext(RendererOptions const& options);
+
+    /// \overload
+    void configureDrawingContext();
+
+    /// \Returns the associated drawing context.
+    /// \pre Drawing context must be created by a call to
+    /// `configureDrawingContext()`
     DrawingContext* getDrawingContext();
 
     void setShadow(ShadowConfig config = {});

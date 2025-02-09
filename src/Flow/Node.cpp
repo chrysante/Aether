@@ -4,6 +4,7 @@ using namespace flow;
 
 void flow::link(OutputPin& source, InputPin& sink) {
     source.addUser(&sink);
+    if (sink.source()) sink.source()->removeUser(&sink);
     sink.setSource(&source);
 }
 

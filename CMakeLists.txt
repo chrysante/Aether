@@ -12,7 +12,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 CPMAddPackage("gh:ericniebler/range-v3#0.12.0")
-CPMAddPackage("gh:chrysante/csp#0.0.1")
+CPMAddPackage("gh:chrysante/csp@0.0.2")
 CPMAddPackage("gh:chrysante/utility#main")
 CPMAddPackage("gh:chrysante/vml#main")
 

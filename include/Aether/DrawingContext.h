@@ -50,13 +50,26 @@ public:
                         std::span<DrawCall const> drawCalls) = 0;
 };
 
+///
+enum class PixelFormat {
+    RGBA8Unorm,
+};
+
+///
+struct RendererOptions {
+    ///
+    PixelFormat pixelFormat = {};
+};
+
 /// Creates a platform dependent implementation of `Renderer`
-std::unique_ptr<Renderer> createRenderer(View* view);
+std::unique_ptr<Renderer> createRenderer(View* view,
+                                         RendererOptions const& options);
 
 /// Wrapper around a `Renderer` that provides convenience drawing functions
 class DrawingContext {
 public:
-    explicit DrawingContext(View* view): renderer(createRenderer(view)) {}
+    explicit DrawingContext(View* view, RendererOptions const& options):
+        renderer(createRenderer(view, options)) {}
 
     /// Creates a draw call that draws \p line
     void addLine(std::span<vml::float2 const> line,

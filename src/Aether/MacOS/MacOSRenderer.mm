@@ -16,6 +16,15 @@ using namespace vml::short_types;
 static constexpr size_t VertexSize = sizeof(float2);
 static constexpr size_t IndexSize = sizeof(uint32_t);
 
+static MTLPixelFormat toMTL(PixelFormat fmt) {
+    using enum PixelFormat;
+    switch (fmt) {
+    case RGBA8Unorm:
+        return MTLPixelFormatRGBA8Unorm;
+    }
+    assert(false);
+}
+
 namespace {
 
 struct MacOSRenderer: xui::Renderer {
@@ -31,8 +40,9 @@ struct MacOSRenderer: xui::Renderer {
     id<MTLBuffer> indexBuffer;
     id<MTLBuffer> transformMatrixBuffer;
     std::vector<id<MTLBuffer>> uniformBuffers;
+    RendererOptions options;
 
-    MacOSRenderer(View* view);
+    MacOSRenderer(View* view, RendererOptions const& options);
     void createRenderingState();
     id<MTLBuffer> __strong* getUniformBuffer(size_t index);
 
@@ -46,13 +56,13 @@ struct MacOSRenderer: xui::Renderer {
 
 } // namespace
 
-MacOSRenderer::MacOSRenderer(View* view):
-    view(view), nativeView(transfer(view->nativeHandle())) {
+MacOSRenderer::MacOSRenderer(View* view, RendererOptions const& options):
+    view(view), nativeView(transfer(view->nativeHandle())), options(options) {
     device = MTLCreateSystemDefaultDevice();
     commandQueue = [device newCommandQueue];
     metalLayer = [[CAMetalLayer alloc] init];
     metalLayer.device = device;
-    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    metalLayer.pixelFormat = toMTL(options.pixelFormat);
     metalLayer.contentsScale = nativeView.window.backingScaleFactor;
     metalLayer.contentsGravity = kCAGravityTopLeft;
     metalLayer.opaque = NO;
@@ -108,7 +118,7 @@ fragment float4 fragment_main(float4 position [[position]], UniformData device c
 }
 )";
 
-static id<MTLRenderPipelineState> createPipeline(id<MTLDevice> device) {
+void MacOSRenderer::createRenderingState() {
     NSError* error = nil;
     id<MTLLibrary> library = [device
         newLibraryWithSource:[NSString stringWithCString:ShaderSource
@@ -117,7 +127,7 @@ static id<MTLRenderPipelineState> createPipeline(id<MTLDevice> device) {
                        error:&error];
     if (error) {
         NSLog(@"Failed to compile shader: %@", error);
-        return nil;
+        return;
     }
     id<MTLFunction> vertexFunction =
         [library newFunctionWithName:@"vertex_main"];
@@ -128,19 +138,12 @@ static id<MTLRenderPipelineState> createPipeline(id<MTLDevice> device) {
     pipelineDescriptor.vertexFunction = vertexFunction;
     pipelineDescriptor.fragmentFunction = fragmentFunction;
     pipelineDescriptor.colorAttachments[0].pixelFormat =
-        MTLPixelFormatBGRA8Unorm; // Assuming the color format of your view
-    id<MTLRenderPipelineState> pipelineState = [device
-        newRenderPipelineStateWithDescriptor:pipelineDescriptor
-                                       error:&error];
+        toMTL(options.pixelFormat);
+    pipeline = [device newRenderPipelineStateWithDescriptor:pipelineDescriptor
+                                                      error:&error];
     if (error) {
         NSLog(@"Failed to create pipeline: %@", error);
-        return nil;
     }
-    return pipelineState;
-}
-
-void MacOSRenderer::createRenderingState() {
-    pipeline = createPipeline(device);
 }
 
 id<MTLBuffer> __strong* MacOSRenderer::getUniformBuffer(size_t index) {
@@ -254,8 +257,9 @@ void MacOSRenderer::uploadDrawData(std::span<float2 const> vertices,
     uploadData(device, &transformMatrixBuffer, transform, sizeof(transform));
 }
 
-std::unique_ptr<Renderer> xui::createRenderer(View* view) {
-    return std::make_unique<MacOSRenderer>(view);
+std::unique_ptr<Renderer> xui::createRenderer(View* view,
+                                              RendererOptions const& options) {
+    return std::make_unique<MacOSRenderer>(view, options);
 }
 
 void View::setShadow(ShadowConfig config) {

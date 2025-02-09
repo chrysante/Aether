@@ -1,6 +1,7 @@
 
 set(SOURCE_FILES
     src/Flow/Editor.cpp
+    src/Flow/Node.cpp
 )
 set(HEADER_FILES
     include/Flow/Editor.h

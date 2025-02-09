@@ -180,6 +180,8 @@ static void addOffset(float2 offset, std::span<float2> points) {
 namespace {
 
 struct DrawView: public View {
+    DrawView() { configureDrawingContext(); }
+
     void draw(xui::Rect) override {
         auto* ctx = getDrawingContext();
         { // Pentagon

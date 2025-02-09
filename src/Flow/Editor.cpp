@@ -60,8 +60,9 @@ class NodeView: public xui::View {
 public:
     explicit NodeView(Node& node): _node(node) {
         addSubview(VStack({})); // FIXME: Shadows don't work without this
-        setShadow();
         label = addSubview(Label(StringProxy::Reference(node.name())));
+        configureDrawingContext({});
+        setShadow();
     }
 
     Node& node() const { return _node; }
@@ -118,7 +119,9 @@ void NodeView::draw(xui::Rect) {
 
 class flow::NodeLayerView: public xui::View {
 public:
-    explicit NodeLayerView(EditorView& editor): editor(editor) {}
+    explicit NodeLayerView(EditorView& editor): editor(editor) {
+        configureDrawingContext({});
+    }
 
     void setGraph(Graph* g);
 
@@ -220,7 +223,10 @@ Point NodeLayerView::getPinLocation(Pin const& pin) const {
 
 class flow::SelectionLayerView: public View {
 public:
-    SelectionLayerView() { ignoreMouseEvents(); }
+    SelectionLayerView() {
+        ignoreMouseEvents();
+        configureDrawingContext({});
+    }
 
     void setBegin(xui::Point pos) {
         rect = xui::Rect{ pos, {} };
